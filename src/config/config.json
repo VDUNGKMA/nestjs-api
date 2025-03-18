@@ -1,0 +1,23 @@
+{
+  "development": {
+    "username": "postgres",
+    "password": "123456",
+    "database": "Booking-Ticket",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  },
+  "test": {
+    "username": "postgres",
+    "password": "123456",
+    "database": "booking_ticket_test",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "postgres",
+    "password": "123456",
+    "database": "booking_ticket_prod",
+    "host": "127.0.0.1",
+    "dialect": "postgres"
+  }
+}
