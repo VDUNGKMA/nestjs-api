@@ -8,12 +8,18 @@ import { MovieGenre } from '../../models/movie-genre.model';
 import { Attributes } from 'sequelize';
 import { Op } from 'sequelize';
 import { Screening } from '../../models/screening.model';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Sequelize } from 'sequelize-typescript';
 
 @Injectable()
 export class MoviesService {
   constructor(
     @InjectModel(Movie) private movieModel: typeof Movie,
     @InjectModel(MovieGenre) private movieGenreModel: typeof MovieGenre,
+    @InjectModel(Genre) private genreModel: typeof Genre,
+    @InjectModel(Screening) private screeningModel: typeof Screening,
+    private sequelize: Sequelize,
   ) {}
 
   async createMovie(createMovieDto: CreateMovieDto): Promise<Movie> {
@@ -145,5 +151,141 @@ export class MoviesService {
     const movie = await this.findOne(id);
     await this.movieGenreModel.destroy({ where: { movie_id: id } });
     await movie.destroy();
+  }
+
+  // Phương thức mới để cập nhật poster của phim
+  async updateMoviePoster(
+    id: number,
+    file: Express.Multer.File,
+  ): Promise<Movie> {
+    const movie = await this.findOne(id);
+    
+    // Xóa poster cũ nếu có
+    if (movie.poster_url && !movie.poster_url.startsWith('http')) {
+      const oldPosterPath = path.join(process.cwd(), movie.poster_url);
+      if (fs.existsSync(oldPosterPath)) {
+        fs.unlinkSync(oldPosterPath);
+      }
+    }
+    
+    // Cập nhật đường dẫn poster mới
+    const posterUrl = `/uploads/posters/${file.filename}`;
+    await movie.update({ poster_url: posterUrl });
+    
+    return this.findOne(id);
+  }
+
+  // Phương thức mới để cập nhật trailer của phim
+  async updateMovieTrailer(
+    id: number,
+    file: Express.Multer.File,
+  ): Promise<Movie> {
+    const movie = await this.findOne(id);
+    
+    // Xóa trailer cũ nếu có
+    if (movie.trailer_url && !movie.trailer_url.startsWith('http')) {
+      const oldTrailerPath = path.join(process.cwd(), movie.trailer_url);
+      if (fs.existsSync(oldTrailerPath)) {
+        fs.unlinkSync(oldTrailerPath);
+      }
+    }
+    
+    // Cập nhật đường dẫn trailer mới
+    const trailerUrl = `/uploads/trailers/${file.filename}`;
+    await movie.update({ trailer_url: trailerUrl });
+    
+    return this.findOne(id);
+  }
+
+  // Phương thức mới để tính tổng số phim, thể loại phim và số suất chiếu
+  async getStatistics() {
+    // Sử dụng transaction để đảm bảo tính nhất quán của dữ liệu
+    const result = await this.sequelize.transaction(async (t) => {
+      // Đếm tổng số phim
+      const totalMovies = await this.movieModel.count({
+        transaction: t,
+      });
+
+      // Đếm tổng số thể loại phim
+      const totalGenres = await this.genreModel.count({
+        transaction: t,
+      });
+
+      // Đếm tổng số suất chiếu
+      const totalScreenings = await this.screeningModel.count({
+        transaction: t,
+      });
+
+      // Đếm số suất chiếu trong ngày hôm nay
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const todayScreenings = await this.screeningModel.count({
+        where: {
+          start_time: {
+            [Op.between]: [today, tomorrow],
+          },
+        },
+        transaction: t,
+      });
+
+      // Đếm số suất chiếu trong tuần này
+      const startOfWeek = new Date();
+      startOfWeek.setHours(0, 0, 0, 0);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Đặt về Chủ Nhật
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(endOfWeek.getDate() + 7); // Đến hết Thứ Bảy
+
+      const thisWeekScreenings = await this.screeningModel.count({
+        where: {
+          start_time: {
+            [Op.between]: [startOfWeek, endOfWeek],
+          },
+        },
+        transaction: t,
+      });
+
+      // Đếm số phim đang chiếu (có suất chiếu trong ngày hôm nay)
+      const nowPlayingMovies = await this.movieModel.count({
+        include: [
+          {
+            model: Screening,
+            as: 'screenings',
+            where: {
+              start_time: {
+                [Op.between]: [today, tomorrow],
+              },
+            },
+            required: true,
+          },
+        ],
+        transaction: t,
+      });
+
+      // Đếm số phim sắp chiếu (ngày phát hành trong tương lai)
+      const upcomingMovies = await this.movieModel.count({
+        where: {
+          release_date: {
+            [Op.gt]: today,
+          },
+        },
+        transaction: t,
+      });
+
+      return {
+        totalMovies,
+        totalGenres,
+        totalScreenings,
+        todayScreenings,
+        thisWeekScreenings,
+        nowPlayingMovies,
+        upcomingMovies,
+      };
+    });
+
+    return result;
   }
 }

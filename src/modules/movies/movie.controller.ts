@@ -9,6 +9,9 @@ import {
   ParseIntPipe, // Thêm ParseIntPipe
   Query,
   UseGuards,
+  UseInterceptors,
+  BadRequestException,
+  UploadedFile,
 } from '@nestjs/common';
 import { MoviesService } from './movie.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
@@ -17,6 +20,9 @@ import { Movie } from 'src/models/movie.model';
 import { Roles } from 'src/decorators/role.decorator';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { Public } from 'src/decorators/public-route.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('movies')
 export class MovieController {
@@ -55,11 +61,16 @@ export class MovieController {
     return this.movieService.findAll(query);
   }
   @Public()
+@Get('statistics')
+async getStatistics() {
+  return this.movieService.getStatistics();
+}
+  @Public()
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<Movie> {
     return this.movieService.findOne(id);
   }
-
+  
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -72,4 +83,75 @@ export class MovieController {
   async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.movieService.deleteMovie(id);
   }
+  // Upload endpoints for admin
+  @Post(':id/upload-poster')
+  @Roles('admin')
+  @UseGuards(RolesGuard)
+  @UseInterceptors(
+    FileInterceptor('poster', {
+      storage: diskStorage({
+        destination: './uploads/posters',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `poster-${req.params.id}-${uniqueSuffix}${ext}`;
+          cb(null, filename);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+          return cb(new BadRequestException('Only image files are allowed!'), false);
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async uploadPoster(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<Movie> {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.movieService.updateMoviePoster(id, file);
+  }
+
+  @Post(':id/upload-trailer')
+  @Roles('admin')
+  @UseGuards(RolesGuard)
+  @UseInterceptors(
+    FileInterceptor('trailer', {
+      storage: diskStorage({
+        destination: './uploads/trailers',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `trailer-${req.params.id}-${uniqueSuffix}${ext}`;
+          cb(null, filename);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(mp4|mov|avi|mkv)$/)) {
+          return cb(new BadRequestException('Only video files are allowed!'), false);
+        }
+        cb(null, true);
+      },
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB
+      },
+    }),
+  )
+  async uploadTrailer(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<Movie> {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.movieService.updateMovieTrailer(id, file);
+  }
+  
 }
