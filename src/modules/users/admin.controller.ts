@@ -47,7 +47,10 @@ export class AdminController {
     const limitNum = parseInt(limit) || 10;
     return this.usersService.findAllByPaginate(pageNum, limitNum);
   }
-
+  @Get('statistics')
+  async getUserStatistics() {
+    return this.usersService.getUserStatistics();
+  }
   // Lấy thông tin chi tiết của người dùng theo ID
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<User> {

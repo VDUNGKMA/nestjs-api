@@ -6,8 +6,9 @@ import {
   Param,
   Put,
   Delete,
-  UseGuards,
   ParseIntPipe, // Thêm ParseIntPipe
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { MoviesService } from './movie.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
@@ -15,47 +16,60 @@ import { UpdateMovieDto } from './dto/update-movie.dto';
 import { Movie } from 'src/models/movie.model';
 import { Roles } from 'src/decorators/role.decorator';
 import { RolesGuard } from 'src/guards/roles.guard';
+import { Public } from 'src/decorators/public-route.decorator';
 
-@UseGuards(RolesGuard)
-@Roles('admin')
 @Controller('movies')
 export class MovieController {
   constructor(private readonly movieService: MoviesService) {}
 
-  // Endpoint tạo phim - chỉ admin
+  // Special endpoints first
+  @Public()
+  @Get('popular')
+  async getPopularMovies(): Promise<Movie[]> {
+    return this.movieService.findAll({ popular: true });
+  }
+  @Public()
+  @Get('upcoming')
+  async getUpcomingMovies(): Promise<Movie[]> {
+    return this.movieService.findAll({ upcoming: true });
+  }
+  @Public()
+  @Get('now-playing')
+  async getNowPlayingMovies(): Promise<Movie[]> {
+    return this.movieService.findAll({ nowPlaying: true });
+  }
+  @Public()
+  @Get('top-rated')
+  async getTopRatedMovies(): Promise<Movie[]> {
+    return this.movieService.findAll({ topRated: true });
+  }
+
+  // Regular endpoints
   @Post()
   async create(@Body() createMovieDto: CreateMovieDto): Promise<Movie> {
     return this.movieService.createMovie(createMovieDto);
   }
-
-  // Endpoint lấy danh sách phim - public (không cần Roles nếu muốn public)
+  @Public()
   @Get()
-  async findAll(): Promise<Movie[]> {
-    return this.movieService.findAll();
+  async findAll(@Query() query): Promise<Movie[]> {
+    return this.movieService.findAll(query);
   }
-
-  // Endpoint lấy chi tiết phim theo ID - public (không cần Roles nếu muốn public)
+  @Public()
   @Get(':id')
-  async findOne(
-    @Param('id', ParseIntPipe) id: number, // Chuyển string thành number
-  ): Promise<Movie> {
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<Movie> {
     return this.movieService.findOne(id);
   }
 
-  // Endpoint cập nhật phim - chỉ admin
   @Put(':id')
   async update(
-    @Param('id', ParseIntPipe) id: number, // Chuyển string thành number
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateMovieDto: UpdateMovieDto,
   ): Promise<Movie> {
     return this.movieService.updateMovie(id, updateMovieDto);
   }
 
-  // Endpoint xóa phim - chỉ admin
   @Delete(':id')
-  async remove(
-    @Param('id', ParseIntPipe) id: number, // Chuyển string thành number
-  ): Promise<void> {
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.movieService.deleteMovie(id);
   }
 }

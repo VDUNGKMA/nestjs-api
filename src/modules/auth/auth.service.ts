@@ -8,31 +8,39 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../email/service';
 import { RefreshTokenService } from './refresh-token.service';
+import { OAuth2Client } from 'google-auth-library';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @Injectable()
 export class AuthService {
+  private otpStore: Map<string, { otp: string; expiry: Date }> = new Map();
+  private readonly otpExpiryTimeInMinutes = 2;
+  private googleClient: OAuth2Client;
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private readonly mailService: MailService,
     private refreshTokenService: RefreshTokenService,
-  ) {}
-  private otpStore: Map<string, { otp: string; expiry: Date }> = new Map(); // Lưu OTP và thời gian hết hạn
-  private readonly otpExpiryTimeInMinutes = 2; // Thời gian hết hạn OTP (phút)
+  ) {
+    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  }
+
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-
     if (user && (await bcrypt.compare(pass, user.password))) {
-      // Trả về dữ liệu user không bao gồm password
-      const { password, ...result } = user.get();
-
-      return result;
+      // const { password, ...result } = user.get();
+      // return result;
+      return user;
     }
     return null;
   }
 
   async login(user: any) {
-    const payload = { email: user.email, sub: user.id, role: user.role};
+    const payload = {
+      email: user.email, 
+      sub: user.id, 
+      role: user.role,  };
     const access_token = this.jwtService.sign(payload, {
       expiresIn: process.env.JWT_EXPIRES_IN || '15m',
     });
@@ -40,27 +48,116 @@ export class AuthService {
       secret: process.env.JWT_REFRESH_SECRET || 'your_refresh_secret',
       expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
     });
-    // Tính toán ngày hết hạn cho refresh token, ví dụ 7 ngày sau thời điểm hiện tại
     const expiry_date = new Date();
     expiry_date.setDate(expiry_date.getDate() + 7);
-    // Lưu refresh token vào DB
     await this.refreshTokenService.saveRefreshToken(
       user.id,
       refresh_token,
       expiry_date,
     );
+    console.log("check user login",user)
     return { user, access_token, refresh_token };
   }
 
+  // async validateGoogleMobile(idToken: string): Promise<any> {
+  //   try {
+  //     const ticket = await this.googleClient.verifyIdToken({
+  //       idToken,
+  //       audience: process.env.GOOGLE_CLIENT_ID,
+  //     });
+  //     const payload = ticket.getPayload();
+
+  //     if (!payload) {
+  //       throw new UnauthorizedException('Invalid Google ID token: No payload');
+  //     }
+
+  //     const email = payload['email'];
+  //     const displayName = payload['name'];
+  //     const picture = payload['picture'];
+  //     const emailVerified = payload['email_verified'];
+
+  //     if (!email || !emailVerified) {
+  //       throw new BadRequestException(
+  //         'Google ID token missing email or not verified',
+  //       );
+  //     }
+  //     if (!displayName) {
+  //       throw new BadRequestException('Google ID token missing displayName');
+  //     }
+
+  //     let user = await this.usersService.findByEmail(email);
+  //     if (!user) {
+  //       const createUserDto: CreateUserDto = {
+  //         name: displayName,
+  //         email,
+  //         password: undefined,
+  //         role: 'customer',
+  //         image: picture, // Lưu ảnh đại diện từ Google
+  //       };
+  //       user = await this.usersService.createUser(createUserDto);
+  //     } else if (picture && !user.image) {
+  //       // Cập nhật ảnh đại diện nếu chưa có
+  //       await this.usersService.updateUser(user.id, { image: picture });
+  //     }
+
+  //     return { id: user.id, email: user.email, role: user.role };
+  //   } catch (error) {
+  //     throw new UnauthorizedException(
+  //       `Invalid Google ID token: ${error.message}`,
+  //     );
+  //   }
+  // }
+  async validateGoogleMobile(idToken: string): Promise<any> {
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID, // Client ID từ Google Cloud Console
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload) {
+        throw new UnauthorizedException('Invalid Google ID token: No payload');
+      }
+
+      const email = payload['email'];
+      const displayName = payload['name'];
+      const picture = payload['picture'];
+      const emailVerified = payload['email_verified'];
+
+      if (!email || !emailVerified) {
+        throw new BadRequestException(
+          'Google ID token missing email or not verified',
+        );
+      }
+
+      let user = await this.usersService.findByEmail(email);
+      if (!user) {
+        const createUserDto: CreateUserDto = {
+          name: displayName || 'Unknown',
+          email,
+          password: undefined,
+          role: 'customer',
+          image: picture,
+        };
+        user = await this.usersService.createUser(createUserDto);
+      } else if (picture && !user.image) {
+        await this.usersService.updateUser(user.id, { image: picture });
+      }
+
+      return { id: user.id, email: user.email, role: user.role };
+    } catch (error) {
+      throw new UnauthorizedException(
+        `Invalid Google ID token: ${error.message}`,
+      );
+    }
+  }
   async refreshToken(
     token: string,
   ): Promise<{ access_token: string; refresh_token: string }> {
     try {
-      // Xác thực refresh token với secret refresh
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_REFRESH_SECRET || 'your_refresh_secret',
       });
-      // Kiểm tra xem refresh token có tồn tại trong DB hay không
       const storedToken = await this.refreshTokenService.findByToken(token);
       if (!storedToken) {
         throw new UnauthorizedException('Refresh token is not found');
@@ -80,13 +177,11 @@ export class AuthService {
       });
       const newExpiryDate = new Date();
       newExpiryDate.setDate(newExpiryDate.getDate() + 7);
-      // Lưu refresh token mới vào DB
       await this.refreshTokenService.saveRefreshToken(
         newPayload.sub,
         newRefreshToken,
         newExpiryDate,
       );
-      // Xóa refresh token cũ
       await this.refreshTokenService.deleteToken(token);
       return { access_token: newAccessToken, refresh_token: newRefreshToken };
     } catch (e) {
@@ -95,57 +190,46 @@ export class AuthService {
   }
 
   async forgotPassword(email: string): Promise<void> {
-    const otp = this.generateOtp(); // Tạo mã OTP ngẫu nhiên
+    const otp = this.generateOtp();
     const expiry = new Date();
-    expiry.setMinutes(expiry.getMinutes() + this.otpExpiryTimeInMinutes); // Đặt thời gian hết hạn
+    expiry.setMinutes(expiry.getMinutes() + this.otpExpiryTimeInMinutes);
 
-    this.otpStore.set(email, { otp, expiry }); // Lưu OTP và thời gian hết hạn
-
-    await this.mailService.sendOtp(email, otp); // Gửi mã OTP qua email
+    this.otpStore.set(email, { otp, expiry });
+    await this.mailService.sendOtp(email, otp);
   }
 
   private generateOtp(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString(); // Tạo mã OTP ngẫu nhiên 6 chữ số
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   async verifyOtp(email: string, otp: string): Promise<boolean> {
     const storedOtpData = this.otpStore.get(email);
-
-    if (!storedOtpData) {
-      return false; // OTP không tồn tại hoặc đã hết hạn
-    }
+    if (!storedOtpData) return false;
 
     const { otp: storedOtp, expiry } = storedOtpData;
     if (new Date() > expiry) {
-      this.otpStore.delete(email); // Xóa OTP hết hạn
-      return false; // OTP đã hết hạn
+      this.otpStore.delete(email);
+      return false;
     }
 
     if (storedOtp === otp) {
-      this.otpStore.delete(email); // Xóa OTP sau khi xác minh
+      this.otpStore.delete(email);
       return true;
     }
-
-    return false; // OTP không hợp lệ
+    return false;
   }
 
   async resetPassword(email: string, newPassword: string): Promise<void> {
-    // Tìm người dùng theo email
     const user = await this.usersService.findByEmail(email);
-
     if (!user) {
       throw new BadRequestException('User not found.');
     }
 
-    // Mã hóa mật khẩu mới trước khi lưu
     const hashedPassword = await this.usersService.hashPassword(newPassword);
-
-    // Cập nhật mật khẩu trong cơ sở dữ liệu
     await this.usersService.updatePassword(user.id, hashedPassword);
   }
 
   async logout(user: any): Promise<{ message: string }> {
-    // Xóa tất cả refresh token của user từ DB
     await this.refreshTokenService.deleteTokensByUser(user.userId);
     return { message: 'Logout successful' };
   }

@@ -15,7 +15,8 @@ async function bootstrap() {
 
   // Cấu hình CORS
   app.enableCors({
-    origin: 'http://192.168.68.99:3000', // Origin của frontend
+    origin: ['http://192.168.68.99:3000',
+     'http://localhost:5173'], // Origin của frontend
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

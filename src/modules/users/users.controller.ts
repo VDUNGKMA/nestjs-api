@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -19,16 +20,20 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from '../../models/user.model';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UserProfileDto } from './dto/user-profile.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // ...
   @Get('profile')
-  async getProfile(@Request() req): Promise<User> {
-    return this.usersService.findOne(req.user.userId);
+  async getProfile(@Request() req): Promise<UserProfileDto> {
+    const user = await this.usersService.findOne(req.user.userId);
+    const { password, ...userProfile } = user.get(); // Exclude password
+    return userProfile as UserProfileDto; // Cast to UserProfileDto
   }
-
   @Put('profile')
   async updateProfile(
     @Request() req,
@@ -73,5 +78,14 @@ export class UsersController {
     };
 
     return this.usersService.updateUser(req.user.userId, updateUserDto);
+  }
+
+  @Put(':id/change-password')
+  async changePassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<void> {
+    const { oldPassword, newPassword } = changePasswordDto;
+    await this.usersService.changePassword(id, oldPassword, newPassword);
   }
 }

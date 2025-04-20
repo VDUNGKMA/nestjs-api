@@ -9,7 +9,6 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Mutable } from '../../common/types/mutable';
 import * as bcrypt from 'bcrypt';
-import { Op } from 'sequelize';
 
 @Injectable()
 export class UsersService {
@@ -24,12 +23,16 @@ export class UsersService {
   hashPassword = async (password: string) => {
     return bcrypt.hash(password, 10);
   };
+
   async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const IsEmailExist = this.IsEmailExist(createUserDto.email);
-    if (await IsEmailExist) {
-      throw new BadRequestException('Email is Exist');
+    const isEmailExist = await this.IsEmailExist(createUserDto.email);
+    if (isEmailExist) {
+      throw new BadRequestException('Email already exists');
     }
-    const hashedPassword = await this.hashPassword(createUserDto.password);
+
+    const hashedPassword = createUserDto.password
+      ? await this.hashPassword(createUserDto.password)
+      : '';
     const role = createUserDto.role || 'customer';
     const data = {
       ...createUserDto,
@@ -37,11 +40,9 @@ export class UsersService {
       role,
     };
 
-    // Sử dụng build() để tạo instance đầy đủ
     const user = this.userModel.build(data);
     return user.save();
   }
-
   async findByEmail(email: string): Promise<User> {
     const user = await this.userModel.findOne({ where: { email } });
     if (!user) {
@@ -109,4 +110,57 @@ export class UsersService {
       where: { role }, // Lọc theo role
     });
   }
+  async changePassword(
+    userId: number,
+    oldPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Kiểm tra mật khẩu cũ
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Old password is incorrect');
+    }
+
+    // Mã hóa mật khẩu mới và cập nhật
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+  }
+  async getUserStatistics(): Promise<{
+    totalUsers: number;
+    totalAdmins: number;
+    totalCustomers: number;
+    totalStaff: number;
+  }> {
+    // Đếm tổng số người dùng
+    const totalUsers = await this.userModel.count();
+    
+    // Đếm số lượng admin
+    const totalAdmins = await this.userModel.count({
+      where: { role: 'admin' }
+    });
+    
+    // Đếm số lượng khách hàng
+    const totalCustomers = await this.userModel.count({
+      where: { role: 'customer' }
+    });
+    
+    // Đếm số lượng nhân viên
+    const totalStaff = await this.userModel.count({
+      where: { role: 'staff' }
+    });
+    
+    return {
+      totalUsers,
+      totalAdmins,
+      totalCustomers,
+      totalStaff
+    };
+  }
+ 
 }

@@ -87,6 +87,18 @@ export class Movie extends Model<Movie, MovieCreationAttrs> {
   })
   trailer_url: string;
 
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+  })
+  popularity: number;
+
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+  })
+  rating: number;
+
   // Quan hệ many-to-many với Genre qua bảng trung gian MovieGenre
   @BelongsToMany(() => Genre, () => MovieGenre)
   genres: Genre[];

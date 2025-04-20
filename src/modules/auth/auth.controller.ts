@@ -16,7 +16,6 @@ import { Public } from 'src/decorators/public-route.decorator';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { Roles } from 'src/decorators/role.decorator';
 
-
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -43,6 +42,12 @@ export class AuthController {
   async login(@Request() req) {
     return this.authService.login(req.user);
   }
+  @Public()
+  @Post('google/mobile')
+  async googleMobileLogin(@Body('idToken') idToken: string) {
+    const user = await this.authService.validateGoogleMobile(idToken);
+    return this.authService.login(user);
+  }
   // Endpoint refresh token
   @Public()
   @Post('refresh')
@@ -54,14 +59,21 @@ export class AuthController {
   async logout(@Request() req) {
     return this.authService.logout(req.user);
   }
-  
+
   @UseGuards(RolesGuard)
   @Roles('admin')
   @Get('profile')
   getProfile(@Request() req) {
     return req.user;
   }
-
+  @UseGuards(RolesGuard)
+  @Roles('customer')
+  @Get('profile-cutomer')
+  getProfilebyCustomer(@Request() req) {
+    const { password, ...userProfile } = req.user;
+    console.log("check user profile",req.user)
+    return userProfile
+  }
   @Public()
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {

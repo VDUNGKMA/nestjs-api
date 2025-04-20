@@ -16,9 +16,9 @@ export class CreateUserDto {
   @IsEmail()
   readonly email: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  readonly password: string;
+  readonly password?: string;
 
   @IsOptional() // Trường này là tùy chọn
   @IsEnum(['admin', 'staff', 'customer']) // Giới hạn giá trị
