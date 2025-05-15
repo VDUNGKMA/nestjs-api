@@ -17,6 +17,7 @@ import { ScreeningModule } from './modules/screenings/screenings.module';
 import { TicketModule } from './modules/tickets/tickets.module';
 import { PaymentModule } from './modules/payments/payment.module';
 import { QRCodeModule } from './modules/qr-codes/qr-codes.module';
+import { McpModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { QRCodeModule } from './modules/qr-codes/qr-codes.module';
     TicketModule,
     PaymentModule,
     QRCodeModule,
+    McpModule,
   ],
   controllers: [AppController],
   providers: [

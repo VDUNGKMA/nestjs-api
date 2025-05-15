@@ -6,7 +6,8 @@ import { CreateScreeningDto } from './dto/create-screening.dto';
 import { UpdateScreeningDto } from './dto/update-screening.dto';
 import { Movie } from '../../models/movie.model';
 import { TheaterRoom } from '../../models/theater-room.model';
-
+import { Op } from 'sequelize';
+import { Theater } from '../../models/theater.model';
 @Injectable()
 export class ScreeningService {
   constructor(
@@ -15,32 +16,7 @@ export class ScreeningService {
     @InjectModel(TheaterRoom) private theaterRoomModel: typeof TheaterRoom,
   ) {}
 
-  //   // Tạo suất chiếu mới
-  //   async create(createScreeningDto: CreateScreeningDto): Promise<Screening> {
-  //     const movie = await this.movieModel.findByPk(createScreeningDto.movie_id);
-  //     if (!movie) {
-  //       throw new NotFoundException(
-  //         `Không tìm thấy phim với id ${createScreeningDto.movie_id}`,
-  //       );
-  //     }
-
-  //     const theaterRoom = await this.theaterRoomModel.findByPk(
-  //       createScreeningDto.theater_room_id,
-  //     );
-  //     if (!theaterRoom) {
-  //       throw new NotFoundException(
-  //         `Không tìm thấy phòng chiếu với id ${createScreeningDto.theater_room_id}`,
-  //       );
-  //     }
-
-  //     const screeningData = {
-  //       ...createScreeningDto,
-  //       start_time: new Date(createScreeningDto.start_time),
-  //       end_time: new Date(createScreeningDto.end_time),
-  //     };
-
-  //     return this.screeningModel.create(screeningData);
-  //   }
+ 
   async create(createScreeningDto: CreateScreeningDto): Promise<Screening> {
     const movie = await this.movieModel.findByPk(createScreeningDto.movie_id);
     if (!movie) {
@@ -68,10 +44,10 @@ export class ScreeningService {
 
     return this.screeningModel.create(screeningData);
   }
-  // Lấy tất cả suất chiếu
-  async findAll(): Promise<Screening[]> {
-    return this.screeningModel.findAll();
-  }
+  // // Lấy tất cả suất chiếu
+  // async findAll(): Promise<Screening[]> {
+  //   return this.screeningModel.findAll();
+  // }
 
   // Lấy một suất chiếu theo ID
   async findOne(id: number): Promise<Screening> {
@@ -118,4 +94,51 @@ export class ScreeningService {
     const screening = await this.findOne(id);
     await screening.destroy();
   }
+ async findAll(filters: {
+   date?: string,
+   theaterId?: number,
+   theaterRoomId?: number,
+   movieId?: number,
+ }) {
+   const where: any = {};
+ 
+   // Lọc theo ngày (giả sử trường ngày là start_time)
+   if (filters.date) {
+     where.start_time = {
+       [Op.gte]: new Date(`${filters.date}T00:00:00`),
+       [Op.lt]: new Date(`${filters.date}T23:59:59`)
+     };
+   }
+ 
+   // Lọc theo movieId
+   if (filters.movieId) {
+     where.movie_id = filters.movieId;
+   }
+ 
+   // Lọc theo phòng chiếu
+   if (filters.theaterRoomId) {
+     where.theater_room_id = filters.theaterRoomId;
+   }
+ 
+   // Lọc theo rạp (theaterId) thông qua liên kết phòng chiếu, và include cả Theater để lấy tên rạp
+   let include: any[] = [];
+   if (filters.theaterId) {
+     include.push({
+       model: TheaterRoom,
+       where: { theater_id: filters.theaterId },
+       include: [{ model: Theater }]
+     });
+   } else {
+     include.push({
+       model: TheaterRoom,
+       include: [{ model: Theater }]
+     });
+   }
+ 
+   return this.screeningModel.findAll({
+     where,
+     include,
+     order: [['start_time', 'ASC']],
+   });
+ }
 }

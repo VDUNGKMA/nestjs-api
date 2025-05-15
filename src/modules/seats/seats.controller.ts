@@ -13,6 +13,7 @@ import {
 import { SeatService } from './seats.service';
 import { CreateSeatDto } from './dto/create-seat.dto';
 import { UpdateSeatDto } from './dto/update-seat.dto';
+import { Public } from 'src/decorators/public-route.decorator';
 
 @Controller('seats')
 export class SeatController {
@@ -22,7 +23,8 @@ export class SeatController {
   create(@Body() createSeatDto: CreateSeatDto) {
     return this.seatService.createSeat(createSeatDto);
   }
-  
+
+  @Public()
   @Get()
   findAll(
     @Query('theaterRoomId', new ParseIntPipe({ optional: true }))
@@ -31,6 +33,7 @@ export class SeatController {
     return this.seatService.findAll(theaterRoomId);
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.seatService.findOne(id);

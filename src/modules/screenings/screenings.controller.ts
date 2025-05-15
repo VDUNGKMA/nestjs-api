@@ -8,10 +8,12 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { ScreeningService } from './screenings.service';
 import { CreateScreeningDto } from './dto/create-screening.dto';
 import { UpdateScreeningDto } from './dto/update-screening.dto';
+import { Public } from 'src/decorators/public-route.decorator';
 
 @Controller('screenings')
 export class ScreeningController {
@@ -22,10 +24,10 @@ export class ScreeningController {
     return this.screeningService.create(createScreeningDto);
   }
 
-  @Get()
-  findAll() {
-    return this.screeningService.findAll();
-  }
+  // @Get()
+  // findAll() {
+  //   return this.screeningService.findAll();
+  // }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -43,5 +45,16 @@ export class ScreeningController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.screeningService.remove(id);
+  }
+
+  @Public()
+  @Get()
+  findAll(
+    @Query('date') date?: string,
+    @Query('theaterId') theaterId?: number,
+    @Query('theaterRoomId') theaterRoomId?: number,
+    @Query('movieId') movieId?: number,
+  ) {
+    return this.screeningService.findAll({ date, theaterId, theaterRoomId, movieId });
   }
 }

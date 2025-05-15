@@ -44,64 +44,64 @@ export class MoviesService {
     return result;
   }
 
-  async findAll(filter: any): Promise<Movie[]> {
-    const where: any = {};
+async findAll(filter: any): Promise<Movie[]> {
+  const where: any = {};
 
-    if (filter.popular) {
-      where.popularity = {
-        [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 50 }],
-      };
-    }
-    if (filter.upcoming) {
-      where.release_date = { [Op.gt]: new Date() };
-    }
-    if (filter.nowPlaying) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+  // Khởi tạo biến ngày đầu hôm nay và đầu ngày mai
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
 
-      where.release_date = {
-        [Op.lte]: today,
-      };
-
-      // Thêm điều kiện để kiểm tra xem phim có suất chiếu trong ngày hôm nay không
-      where['$screenings.start_time$'] = {
-        [Op.between]: [today, tomorrow],
-      };
-    }
-    if (filter.topRated) {
-      where.rating = {
-        [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 8 }],
-      };
-    }
-
-    return this.movieModel.findAll({
-      where,
-      include: [
-        {
-          model: Genre,
-          through: { attributes: [] },
-          as: 'genres',
-        },
-        {
-          model: Screening,
-          as: 'screenings',
-          where: filter.nowPlaying
-            ? {
-                start_time: {
-                  [Op.between]: [
-                    new Date(),
-                    new Date(new Date().setDate(new Date().getDate() + 1)),
-                  ],
-                },
-              }
-            : undefined,
-          required: filter.nowPlaying,
-        },
-      ],
-    });
+  if (filter.popular) {
+    where.popularity = {
+      [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 50 }],
+    };
   }
+  if (filter.upcoming) {
+    where.release_date = { [Op.gt]: new Date() };
+  }
+  if (filter.nowPlaying) {
+    where.release_date = { [Op.lte]: today };
+    // Lọc phim có suất chiếu trong ngày hôm nay
+    where['$screenings.start_time$'] = {
+      [Op.between]: [today, tomorrow],
+    };
+  }
+  if (filter.topRated) {
+    where.rating = {
+      [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 8 }],
+    };
+  }
+
+  // Log điều kiện where để debug nếu cần
+  console.log('today:', today);
+  console.log('tomorrow:', tomorrow);
+  console.log('where:', where);
+
+  return this.movieModel.findAll({
+    where,
+    include: [
+      {
+        model: Genre,
+        through: { attributes: [] },
+        as: 'genres',
+      },
+      {
+        model: Screening,
+        as: 'screenings',
+        where: filter.nowPlaying
+          ? {
+              start_time: {
+                [Op.between]: [today, tomorrow],
+              },
+            }
+          : undefined,
+        required: filter.nowPlaying,
+      },
+    ],
+  });
+}
 
   async findOne(id: number): Promise<Movie> {
     const movie = await this.movieModel.findByPk(id, {
