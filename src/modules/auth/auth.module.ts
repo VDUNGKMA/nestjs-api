@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
@@ -12,6 +12,7 @@ import { MailService } from '../email/service';
 import { RefreshTokenService } from './refresh-token.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { RefreshToken } from 'src/models/refresh-token.model';
+import { FoodDrinksModule } from '../food-drinks/food-drinks.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { RefreshToken } from 'src/models/refresh-token.model';
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN },
     }),
     SequelizeModule.forFeature([RefreshToken]),
+    forwardRef(() => FoodDrinksModule),
   ],
   providers: [
     AuthService,
@@ -32,8 +34,8 @@ import { RefreshToken } from 'src/models/refresh-token.model';
     JwtAuthGuard,
     MailService,
     RefreshTokenService,
-  ], // Add JwtAuthGuard to providers
+  ],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}

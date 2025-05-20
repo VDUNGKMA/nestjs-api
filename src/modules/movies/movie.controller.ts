@@ -42,12 +42,21 @@ export class MovieController {
   @Public()
   @Get('now-playing')
   async getNowPlayingMovies(): Promise<Movie[]> {
+    // Trả về tất cả phim đã phát hành, không yêu cầu phải có suất chiếu trong ngày hôm nay
     return this.movieService.findAll({ nowPlaying: true });
   }
   @Public()
   @Get('top-rated')
   async getTopRatedMovies(): Promise<Movie[]> {
     return this.movieService.findAll({ topRated: true });
+  }
+
+  @Public()
+  @Get('currently-showing')
+  async getCurrentlyShowingMovies(
+    @Query('days', new ParseIntPipe({ optional: true })) days?: number,
+  ): Promise<Movie[]> {
+    return this.movieService.getShowingMovies(days || 14);
   }
 
   // Regular endpoints
@@ -61,16 +70,16 @@ export class MovieController {
     return this.movieService.findAll(query);
   }
   @Public()
-@Get('statistics')
-async getStatistics() {
-  return this.movieService.getStatistics();
-}
+  @Get('statistics')
+  async getStatistics() {
+    return this.movieService.getStatistics();
+  }
   @Public()
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<Movie> {
     return this.movieService.findOne(id);
   }
-  
+
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -92,7 +101,8 @@ async getStatistics() {
       storage: diskStorage({
         destination: './uploads/posters',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
           const filename = `poster-${req.params.id}-${uniqueSuffix}${ext}`;
           cb(null, filename);
@@ -100,7 +110,10 @@ async getStatistics() {
       }),
       fileFilter: (req, file, cb) => {
         if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
-          return cb(new BadRequestException('Only image files are allowed!'), false);
+          return cb(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
         }
         cb(null, true);
       },
@@ -127,7 +140,8 @@ async getStatistics() {
       storage: diskStorage({
         destination: './uploads/trailers',
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
           const filename = `trailer-${req.params.id}-${uniqueSuffix}${ext}`;
           cb(null, filename);
@@ -135,7 +149,10 @@ async getStatistics() {
       }),
       fileFilter: (req, file, cb) => {
         if (!file.originalname.match(/\.(mp4|mov|avi|mkv)$/)) {
-          return cb(new BadRequestException('Only video files are allowed!'), false);
+          return cb(
+            new BadRequestException('Only video files are allowed!'),
+            false,
+          );
         }
         cb(null, true);
       },
@@ -153,5 +170,4 @@ async getStatistics() {
     }
     return this.movieService.updateMovieTrailer(id, file);
   }
-  
 }

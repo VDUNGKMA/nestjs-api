@@ -16,7 +16,6 @@ export class ScreeningService {
     @InjectModel(TheaterRoom) private theaterRoomModel: typeof TheaterRoom,
   ) {}
 
- 
   async create(createScreeningDto: CreateScreeningDto): Promise<Screening> {
     const movie = await this.movieModel.findByPk(createScreeningDto.movie_id);
     if (!movie) {
@@ -94,51 +93,57 @@ export class ScreeningService {
     const screening = await this.findOne(id);
     await screening.destroy();
   }
- async findAll(filters: {
-   date?: string,
-   theaterId?: number,
-   theaterRoomId?: number,
-   movieId?: number,
- }) {
-   const where: any = {};
- 
-   // Lọc theo ngày (giả sử trường ngày là start_time)
-   if (filters.date) {
-     where.start_time = {
-       [Op.gte]: new Date(`${filters.date}T00:00:00`),
-       [Op.lt]: new Date(`${filters.date}T23:59:59`)
-     };
-   }
- 
-   // Lọc theo movieId
-   if (filters.movieId) {
-     where.movie_id = filters.movieId;
-   }
- 
-   // Lọc theo phòng chiếu
-   if (filters.theaterRoomId) {
-     where.theater_room_id = filters.theaterRoomId;
-   }
- 
-   // Lọc theo rạp (theaterId) thông qua liên kết phòng chiếu, và include cả Theater để lấy tên rạp
-   let include: any[] = [];
-   if (filters.theaterId) {
-     include.push({
-       model: TheaterRoom,
-       where: { theater_id: filters.theaterId },
-       include: [{ model: Theater }]
-     });
-   } else {
-     include.push({
-       model: TheaterRoom,
-       include: [{ model: Theater }]
-     });
-   }
- 
-   return this.screeningModel.findAll({
-     where,
-     include,
-     order: [['start_time', 'ASC']],
-   });
- }
+  async findAll(filters: {
+    date?: string;
+    theaterId?: number;
+    theaterRoomId?: number;
+    movieId?: number;
+  }) {
+    const where: any = {};
+
+    // Lọc theo ngày (giả sử trường ngày là start_time)
+    if (filters.date) {
+      where.start_time = {
+        [Op.gte]: new Date(`${filters.date}T00:00:00`),
+        [Op.lt]: new Date(`${filters.date}T23:59:59`),
+      };
+    }
+
+    // Lọc theo movieId
+    if (filters.movieId) {
+      where.movie_id = filters.movieId;
+    }
+
+    // Lọc theo phòng chiếu
+    if (filters.theaterRoomId) {
+      where.theater_room_id = filters.theaterRoomId;
+    }
+
+    // Thêm điều kiện lọc ra những suất chiếu chưa kết thúc
+    const currentTime = new Date();
+    where.end_time = {
+      [Op.gt]: currentTime,
+    };
+
+    // Lọc theo rạp (theaterId) thông qua liên kết phòng chiếu, và include cả Theater để lấy tên rạp
+    let include: any[] = [];
+    if (filters.theaterId) {
+      include.push({
+        model: TheaterRoom,
+        where: { theater_id: filters.theaterId },
+        include: [{ model: Theater }],
+      });
+    } else {
+      include.push({
+        model: TheaterRoom,
+        include: [{ model: Theater }],
+      });
+    }
+
+    return this.screeningModel.findAll({
+      where,
+      include,
+      order: [['start_time', 'ASC']],
+    });
+  }
 }

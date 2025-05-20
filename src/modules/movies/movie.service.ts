@@ -44,64 +44,76 @@ export class MoviesService {
     return result;
   }
 
-async findAll(filter: any): Promise<Movie[]> {
-  const where: any = {};
+  async findAll(filter: any): Promise<Movie[]> {
+    const where: any = {};
 
-  // Khởi tạo biến ngày đầu hôm nay và đầu ngày mai
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
+    // Khởi tạo biến ngày đầu hôm nay và đầu ngày mai
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
 
-  if (filter.popular) {
-    where.popularity = {
-      [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 50 }],
-    };
-  }
-  if (filter.upcoming) {
-    where.release_date = { [Op.gt]: new Date() };
-  }
-  if (filter.nowPlaying) {
-    where.release_date = { [Op.lte]: today };
-    // Lọc phim có suất chiếu trong ngày hôm nay
-    where['$screenings.start_time$'] = {
-      [Op.between]: [today, tomorrow],
-    };
-  }
-  if (filter.topRated) {
-    where.rating = {
-      [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 8 }],
-    };
-  }
+    // Khởi tạo thời điểm hiện tại để check suất chiếu đang diễn ra
+    const now = new Date();
 
-  // Log điều kiện where để debug nếu cần
-  console.log('today:', today);
-  console.log('tomorrow:', tomorrow);
-  console.log('where:', where);
+    // Ngày kết thúc cho việc lọc phim đang chiếu (mặc định 14 ngày từ hiện tại)
+    const endDate = new Date();
+    endDate.setDate(today.getDate() + 14);
 
-  return this.movieModel.findAll({
-    where,
-    include: [
-      {
-        model: Genre,
-        through: { attributes: [] },
-        as: 'genres',
-      },
-      {
-        model: Screening,
-        as: 'screenings',
-        where: filter.nowPlaying
-          ? {
-              start_time: {
-                [Op.between]: [today, tomorrow],
-              },
-            }
-          : undefined,
-        required: filter.nowPlaying,
-      },
-    ],
-  });
-}
+    if (filter.popular) {
+      where.popularity = {
+        [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 50 }],
+      };
+    }
+    if (filter.upcoming) {
+      where.release_date = { [Op.gt]: new Date() };
+    }
+    if (filter.nowPlaying) {
+      // Phim đang chiếu là phim đã phát hành
+      where.release_date = { [Op.lte]: today };
+      // Không yêu cầu phải có suất chiếu trong ngày hôm nay
+    }
+    if (filter.currentlyShowing) {
+      // Phim đang chiếu hiện tại - phim có suất chiếu đang diễn ra
+      where.release_date = { [Op.lte]: now };
+      // Sẽ lọc thông qua điều kiện screening ở include
+    }
+    if (filter.topRated) {
+      where.rating = {
+        [Op.and]: [{ [Op.ne]: null }, { [Op.gt]: 8 }],
+      };
+    }
+
+    // Log điều kiện where để debug nếu cần
+    console.log('today:', today);
+    console.log('tomorrow:', tomorrow);
+    console.log('where:', where);
+
+    return this.movieModel.findAll({
+      where,
+      include: [
+        {
+          model: Genre,
+          through: { attributes: [] },
+          as: 'genres',
+        },
+        {
+          model: Screening,
+          as: 'screenings',
+          where: filter.currentlyShowing
+            ? {
+                // Suất chiếu trong 14 ngày tới
+                start_time: {
+                  [Op.gt]: now,
+                  [Op.lt]: endDate,
+                },
+              }
+            : undefined,
+          required: filter.currentlyShowing,
+        },
+      ],
+    });
+  }
 
   async findOne(id: number): Promise<Movie> {
     const movie = await this.movieModel.findByPk(id, {
@@ -159,7 +171,7 @@ async findAll(filter: any): Promise<Movie[]> {
     file: Express.Multer.File,
   ): Promise<Movie> {
     const movie = await this.findOne(id);
-    
+
     // Xóa poster cũ nếu có
     if (movie.poster_url && !movie.poster_url.startsWith('http')) {
       const oldPosterPath = path.join(process.cwd(), movie.poster_url);
@@ -167,11 +179,11 @@ async findAll(filter: any): Promise<Movie[]> {
         fs.unlinkSync(oldPosterPath);
       }
     }
-    
+
     // Cập nhật đường dẫn poster mới
     const posterUrl = `/uploads/posters/${file.filename}`;
     await movie.update({ poster_url: posterUrl });
-    
+
     return this.findOne(id);
   }
 
@@ -181,7 +193,7 @@ async findAll(filter: any): Promise<Movie[]> {
     file: Express.Multer.File,
   ): Promise<Movie> {
     const movie = await this.findOne(id);
-    
+
     // Xóa trailer cũ nếu có
     if (movie.trailer_url && !movie.trailer_url.startsWith('http')) {
       const oldTrailerPath = path.join(process.cwd(), movie.trailer_url);
@@ -189,11 +201,11 @@ async findAll(filter: any): Promise<Movie[]> {
         fs.unlinkSync(oldTrailerPath);
       }
     }
-    
+
     // Cập nhật đường dẫn trailer mới
     const trailerUrl = `/uploads/trailers/${file.filename}`;
     await movie.update({ trailer_url: trailerUrl });
-    
+
     return this.findOne(id);
   }
 
@@ -235,7 +247,7 @@ async findAll(filter: any): Promise<Movie[]> {
       const startOfWeek = new Date();
       startOfWeek.setHours(0, 0, 0, 0);
       startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Đặt về Chủ Nhật
-      
+
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(endOfWeek.getDate() + 7); // Đến hết Thứ Bảy
 
@@ -287,5 +299,43 @@ async findAll(filter: any): Promise<Movie[]> {
     });
 
     return result;
+  }
+
+  /**
+   * Lấy danh sách phim đang chiếu với nhiều tiêu chí
+   * - Bao gồm phim đã phát hành
+   * - Có lịch chiếu trong 14 ngày tới
+   */
+  async getShowingMovies(days: number = 14): Promise<Movie[]> {
+    const now = new Date();
+    const endDate = new Date();
+    endDate.setDate(now.getDate() + days);
+
+    return this.movieModel.findAll({
+      where: {
+        // Phim đã phát hành
+        release_date: { [Op.lte]: now },
+      },
+      include: [
+        {
+          model: Genre,
+          through: { attributes: [] },
+          as: 'genres',
+        },
+        {
+          model: Screening,
+          where: {
+            // Có lịch chiếu từ hiện tại đến X ngày sau
+            start_time: {
+              [Op.gte]: now,
+              [Op.lt]: endDate,
+            },
+          },
+          required: true, // Bắt buộc phải có suất chiếu
+        },
+      ],
+      order: [['release_date', 'DESC']], // Sắp xếp theo ngày phát hành
+      group: ['Movie.id'], // Nhóm theo ID phim để tránh trùng lặp
+    });
   }
 }

@@ -1,30 +1,29 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { PaymentService } from './payments.service';
+import { PaymentController } from './payments.controller';
+import { Payment } from '../../models/payment.model';
 import { Ticket } from '../../models/ticket.model';
-import { TicketService } from './tickets.service';
-import { TicketController } from './tickets.controller';
 import { User } from '../../models/user.model';
-import { Screening } from '../../models/screening.model';
-import { Seat } from '../../models/seat.model';
-import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 import { SeatReservation } from '../../models/seat-reservation.model';
 import { FoodDrink } from '../../models/food-drink.model';
 import { TicketFoodDrink } from '../../models/ticket-food-drink.model';
+import { FoodDrinksModule } from '../food-drinks/food-drinks.module';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([
+      Payment,
       Ticket,
       User,
-      Screening,
-      Seat,
       SeatReservation,
       FoodDrink,
       TicketFoodDrink,
     ]),
+    forwardRef(() => FoodDrinksModule),
   ],
-  controllers: [TicketController],
-  providers: [TicketService, JwtAuthGuard],
-  exports: [TicketService],
+  controllers: [PaymentController],
+  providers: [PaymentService],
+  exports: [PaymentService, SequelizeModule],
 })
-export class TicketModule {}
+export class PaymentModule {}

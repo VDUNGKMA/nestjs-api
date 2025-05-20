@@ -10,6 +10,9 @@ import { QR_Code } from './qr-code.model';
 import { MovieGenre } from './movie-genre.model';
 import { Genre } from './genre.model';
 import { RefreshToken } from './refresh-token.model';
+import { SeatReservation } from './seat-reservation.model';
+import { FoodDrink } from './food-drink.model';
+import { TicketFoodDrink } from './ticket-food-drink.model';
 
 export const models = [
   User,
@@ -24,4 +27,7 @@ export const models = [
   Payment,
   QR_Code,
   RefreshToken,
+  SeatReservation,
+  FoodDrink,
+  TicketFoodDrink,
 ];

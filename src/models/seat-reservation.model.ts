@@ -5,30 +5,29 @@ import {
   DataType,
   ForeignKey,
   BelongsTo,
-  HasMany,
 } from 'sequelize-typescript';
 import { User } from './user.model';
 import { Screening } from './screening.model';
 import { Seat } from './seat.model';
 import { BaseModel } from './base.model';
-import { TicketFoodDrink } from './ticket-food-drink.model';
+import { ReservationType } from '../modules/seat-reservations/dto/create-seat-reservation.dto';
 
-// Interface cho các thuộc tính của Ticket
-export interface TicketAttributes {
+export interface SeatReservationAttributes {
   user_id: number;
   screening_id: number;
-  seat_id?: number; // Có thể null
-  booking_time?: Date; // Tùy chọn vì có giá trị mặc định
-  status?: 'booked' | 'paid' | 'cancelled'; // Tùy chọn vì có giá trị mặc định
+  seat_id: number;
+  expires_at: Date;
+  reservation_type: ReservationType;
+  reservation_id?: string;
 }
 
 @Table({
-  tableName: 'Tickets',
+  tableName: 'SeatReservations',
   timestamps: true,
 })
-export class Ticket
-  extends BaseModel<TicketAttributes>
-  implements TicketAttributes
+export class SeatReservation
+  extends BaseModel<SeatReservationAttributes>
+  implements SeatReservationAttributes
 {
   @ForeignKey(() => User)
   @Column({
@@ -53,7 +52,7 @@ export class Ticket
   @ForeignKey(() => Seat)
   @Column({
     type: DataType.INTEGER,
-    allowNull: true,
+    allowNull: false,
   })
   seat_id: number;
 
@@ -62,18 +61,20 @@ export class Ticket
 
   @Column({
     type: DataType.DATE,
-    defaultValue: DataType.NOW,
+    allowNull: false,
   })
-  booking_time: Date;
+  expires_at: Date;
 
   @Column({
-    type: DataType.ENUM('booked', 'paid', 'cancelled'),
+    type: DataType.ENUM('temporary', 'processing_payment'),
     allowNull: false,
-    defaultValue: 'booked',
+    defaultValue: ReservationType.TEMPORARY,
   })
-  status!: 'booked' | 'paid' | 'cancelled';
+  reservation_type!: ReservationType;
 
-  // Relationship with TicketFoodDrink
-  @HasMany(() => TicketFoodDrink)
-  foodDrinks: TicketFoodDrink[];
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  reservation_id?: string;
 }
