@@ -7,12 +7,14 @@ import { User } from '../../models/user.model';
 import { PaymentService } from './payments.service';
 import { PaymentController } from './payments.controller';
 import { SeatReservation } from '../../models/seat-reservation.model';
+import { PayPalService } from './paypal.service';
 
 @Module({
   imports: [
     SequelizeModule.forFeature([Payment, Ticket, User, SeatReservation]),
   ],
   controllers: [PaymentController],
-  providers: [PaymentService],
+  providers: [PaymentService, PayPalService],
+  exports: [PaymentService, PayPalService],
 })
 export class PaymentModule {}

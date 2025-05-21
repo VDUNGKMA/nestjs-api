@@ -3,9 +3,27 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // Enable raw body for webhook verification
+  });
+
+  // Configure body parser for JSON requests
+  app.use(
+    bodyParser.json({
+      verify: (req: any, res, buf) => {
+        // Save raw body for PayPal webhook verification
+        if (
+          req.originalUrl &&
+          req.originalUrl.includes('/payments/paypal/webhook')
+        ) {
+          req.rawBody = buf;
+        }
+      },
+    }),
+  );
 
   // Global validation pipe
   app.useGlobalPipes(

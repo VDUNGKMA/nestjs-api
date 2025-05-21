@@ -1,5 +1,9 @@
 // src/screenings/screening.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Screening, ScreeningAttributes } from '../../models/screening.model';
 import { CreateScreeningDto } from './dto/create-screening.dto';
@@ -21,6 +25,25 @@ export class ScreeningService {
     if (!movie) {
       throw new NotFoundException(
         `Không tìm thấy phim với id ${createScreeningDto.movie_id}`,
+      );
+    }
+
+    // Kiểm tra thời gian suất chiếu với ngày phát hành
+    const movieReleaseDate = new Date(movie.release_date);
+    movieReleaseDate.setHours(0, 0, 0, 0); // Đặt thời gian về 00:00:00 của ngày phát hành
+
+    const screeningStartTime = new Date(createScreeningDto.start_time);
+    const screeningEndTime = new Date(createScreeningDto.end_time);
+
+    if (screeningStartTime < movieReleaseDate) {
+      throw new BadRequestException(
+        'Không thể tạo suất chiếu trước ngày phát hành của phim',
+      );
+    }
+
+    if (screeningEndTime < movieReleaseDate) {
+      throw new BadRequestException(
+        'Thời gian kết thúc suất chiếu phải sau ngày phát hành của phim',
       );
     }
 
@@ -63,6 +86,42 @@ export class ScreeningService {
     updateScreeningDto: UpdateScreeningDto,
   ): Promise<Screening> {
     const screening = await this.findOne(id);
+    if (!screening) {
+      throw new NotFoundException(`Không tìm thấy suất chiếu với id ${id}`);
+    }
+
+    // Nếu có cập nhật thời gian suất chiếu
+    if (updateScreeningDto.start_time || updateScreeningDto.end_time) {
+      const movie = await this.movieModel.findByPk(screening.movie_id);
+      if (!movie) {
+        throw new NotFoundException(
+          `Không tìm thấy phim với id ${screening.movie_id}`,
+        );
+      }
+
+      const movieReleaseDate = new Date(movie.release_date);
+      movieReleaseDate.setHours(0, 0, 0, 0);
+
+      const screeningStartTime = updateScreeningDto.start_time
+        ? new Date(updateScreeningDto.start_time)
+        : new Date(screening.start_time);
+
+      const screeningEndTime = updateScreeningDto.end_time
+        ? new Date(updateScreeningDto.end_time)
+        : new Date(screening.end_time);
+
+      if (screeningStartTime < movieReleaseDate) {
+        throw new BadRequestException(
+          'Không thể cập nhật suất chiếu trước ngày phát hành của phim',
+        );
+      }
+
+      if (screeningEndTime < movieReleaseDate) {
+        throw new BadRequestException(
+          'Thời gian kết thúc suất chiếu phải sau ngày phát hành của phim',
+        );
+      }
+    }
 
     if (updateScreeningDto.movie_id) {
       const movie = await this.movieModel.findByPk(updateScreeningDto.movie_id);

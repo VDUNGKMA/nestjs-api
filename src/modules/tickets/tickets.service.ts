@@ -15,6 +15,9 @@ import { TicketFoodDrink } from '../../models/ticket-food-drink.model';
 import { FoodDrink } from '../../models/food-drink.model';
 import { Sequelize } from 'sequelize-typescript';
 import { Transaction } from 'sequelize';
+import { Movie } from 'src/models/movie.model';
+import { TheaterRoom } from 'src/models/theater-room.model';
+import { Theater } from 'src/models/theater.model';
 
 @Injectable()
 export class TicketService {
@@ -167,7 +170,23 @@ export class TicketService {
       where: { user_id: userId },
       include: [
         { model: User },
-        { model: Screening },
+        { model: Screening,
+          include: [
+            {
+              model: Movie,
+              attributes: ['title', 'poster_url'],
+            },
+            {
+              model: TheaterRoom,
+              include: [
+                {
+                  model: Theater,
+                },
+              ],
+            },
+          ],
+        },
+      
         { model: Seat },
         {
           model: TicketFoodDrink,

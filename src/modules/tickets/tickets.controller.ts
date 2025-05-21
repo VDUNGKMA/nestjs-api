@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -8,10 +7,13 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { TicketService } from './tickets.service';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { UpdateTicketDto } from './dto/update-ticket.dto';
+import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 
 @Controller('tickets')
 export class TicketController {
@@ -25,6 +27,13 @@ export class TicketController {
   @Get()
   findAll() {
     return this.ticketService.findAll();
+  }
+
+  @Get('my-tickets')
+  @UseGuards(JwtAuthGuard)
+  async getMyTickets(@Req() req) {
+    const userId = req.user.userId;
+    return this.ticketService.findByUserId(userId);
   }
 
   @Get(':id')

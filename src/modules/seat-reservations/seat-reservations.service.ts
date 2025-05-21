@@ -462,7 +462,7 @@ export class SeatReservationService {
     const now = new Date();
     return reservationType === ReservationType.TEMPORARY
       ? addMinutes(now, 10) // Tạm thời: 10 phút
-      : addMinutes(now, 30); // Đang thanh toán: 30 phút
+      : addMinutes(now, 60); // Đang thanh toán: 60 phút (tăng từ 30 phút)
   }
 
   /**

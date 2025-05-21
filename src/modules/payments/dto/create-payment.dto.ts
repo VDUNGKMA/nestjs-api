@@ -28,7 +28,7 @@ export class CreatePaymentDto {
   @IsOptional()
   transaction_id?: string;
 
-  @IsEnum(['Momo', 'Visa', 'Cash'])
+  @IsEnum(['Momo', 'Visa', 'Cash', 'PayPal'])
   @IsOptional()
-  payment_method?: 'Momo' | 'Visa' | 'Cash';
+  payment_method?: 'Momo' | 'Visa' | 'Cash' | 'PayPal';
 }

@@ -16,7 +16,7 @@ export interface PaymentAttributes {
   amount: number;
   payment_status?: 'pending' | 'completed' | 'failed'; // Tùy chọn vì có giá trị mặc định
   transaction_id?: string; // Tùy chọn vì có thể null
-  payment_method?: 'Momo' | 'Visa' | 'Cash';
+  payment_method?: 'Momo' | 'Visa' | 'Cash' | 'PayPal';
 }
 
 @Table({
@@ -65,8 +65,8 @@ export class Payment extends BaseModel<PaymentAttributes> {
   transaction_id: string;
 
   @Column({
-    type: DataType.ENUM('Momo', 'Visa', 'Cash'),
+    type: DataType.ENUM('Momo', 'Visa', 'Cash', 'PayPal'),
     allowNull: true,
   })
-  payment_method?: 'Momo' | 'Visa' | 'Cash';
+  payment_method?: 'Momo' | 'Visa' | 'Cash' | 'PayPal';
 }
