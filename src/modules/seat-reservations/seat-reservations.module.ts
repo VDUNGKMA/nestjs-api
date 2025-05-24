@@ -18,6 +18,7 @@ import * as redisStore from 'cache-manager-redis-store';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisLockService } from './redis-lock.service';
 import type { RedisClientOptions } from 'redis';
+import { TicketSeat } from '../../models/ticket-seat.model';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import type { RedisClientOptions } from 'redis';
       Seat,
       Ticket,
       TheaterRoom,
+      TicketSeat,
     ]),
     BullModule.registerQueue({
       name: 'seat-reservations',

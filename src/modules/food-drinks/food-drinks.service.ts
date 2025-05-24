@@ -114,6 +114,9 @@ export class FoodDrinksService {
           );
         }
 
+        // Calculate total price for this item
+        const itemTotal = foodDrink.price * item.quantity;
+        
         // Create order item
         const orderItem = await this.ticketFoodDrinkModel.create(
           {
@@ -121,6 +124,7 @@ export class FoodDrinksService {
             food_drink_id: item.food_drink_id,
             quantity: item.quantity,
             unit_price: foodDrink.price,
+            total_price: itemTotal,
             status: 'pending',
           },
           { transaction },
@@ -183,5 +187,7 @@ export class FoodDrinksService {
 
     await item.update({ status });
     return item;
+
   }
+  
 }

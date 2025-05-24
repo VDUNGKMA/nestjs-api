@@ -11,6 +11,7 @@ import { Screening } from '../../models/screening.model';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
+import { MovieRating } from '../../models/movie-rating.model';
 
 @Injectable()
 export class MoviesService {
@@ -337,5 +338,48 @@ export class MoviesService {
       order: [['release_date', 'DESC']], // Sắp xếp theo ngày phát hành
       group: ['Movie.id'], // Nhóm theo ID phim để tránh trùng lặp
     });
+  }
+
+  async rateMovie(
+    movieId: number,
+    userId: number,
+    rating: number,
+    comment?: string,
+  ) {
+    if (!movieId || !userId || !rating) {
+      throw new Error('Thiếu thông tin đánh giá');
+    }
+    if (rating < 1 || rating > 5) {
+      throw new Error('Số sao phải từ 1 đến 5');
+    }
+    // Tìm hoặc tạo mới đánh giá
+    const [movieRating, created] = await MovieRating.findOrCreate({
+      where: { movie_id: movieId, user_id: userId },
+      defaults: { rating, comment },
+    });
+    if (!created) {
+      // Nếu đã có, cập nhật lại rating/comment
+      movieRating.rating = rating;
+      if (comment !== undefined) movieRating.comment = comment;
+      await movieRating.save();
+    }
+    return { success: true, rating: movieRating };
+  }
+
+  async getAverageRating(movieId: number) {
+    const ratings = await MovieRating.findAll({ where: { movie_id: movieId } });
+    if (ratings.length === 0) return { average: 0, count: 0 };
+    const sum = ratings.reduce((acc, r) => acc + r.rating, 0);
+    const avg = sum / ratings.length;
+    return { average: Number(avg.toFixed(2)), count: ratings.length };
+  }
+
+  async getRatings(movieId: number) {
+    const ratings = await MovieRating.findAll({
+      where: { movie_id: movieId },
+      include: ['user'],
+      order: [['createdAt', 'DESC']],
+    });
+    return ratings;
   }
 }

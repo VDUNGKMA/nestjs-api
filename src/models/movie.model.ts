@@ -10,6 +10,7 @@ import { Screening } from './screening.model';
 import { Genre } from './genre.model';
 import { MovieGenre } from './movie-genre.model';
 
+
 export interface MovieCreationAttrs {
   title: string;
   description?: string;
@@ -106,4 +107,5 @@ export class Movie extends Model<Movie, MovieCreationAttrs> {
   // Một phim có nhiều suất chiếu
   @HasMany(() => Screening)
   screenings: Screening[];
+
 }

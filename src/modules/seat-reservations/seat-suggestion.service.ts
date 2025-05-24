@@ -6,6 +6,7 @@ import { SeatReservation } from '../../models/seat-reservation.model';
 import { TheaterRoom } from '../../models/theater-room.model';
 import { Op } from 'sequelize';
 import { User } from '../../models/user.model';
+import { TicketSeat } from '../../models/ticket-seat.model';
 
 @Injectable()
 export class SeatSuggestionService {
@@ -16,6 +17,7 @@ export class SeatSuggestionService {
     private seatReservationModel: typeof SeatReservation,
     @InjectModel(TheaterRoom) private theaterRoomModel: typeof TheaterRoom,
     @InjectModel(User) private userModel: typeof User,
+    @InjectModel(TicketSeat) private ticketSeatModel: typeof TicketSeat,
   ) {}
 
   /**
@@ -116,17 +118,24 @@ export class SeatSuggestionService {
   }
 
   /**
-   * Lấy danh sách ID của các ghế đã bị chiếm cho suất chiếu
+   * Lấy danh sách ID của các ghế đã bị chiếm
    * (bao gồm cả ghế đã đặt và ghế đang giữ tạm thời)
    */
   private async getOccupiedSeatIds(screeningId: number): Promise<number[]> {
-    // Lấy ID của các ghế đã được đặt vé
-    const bookedTickets = await this.ticketModel.findAll({
-      where: { screening_id: screeningId },
+    // Lấy ID của các ghế đã được đặt vé thông qua bảng TicketSeats
+    const ticketSeats = await this.ticketSeatModel.findAll({
+      include: [
+        {
+          model: Ticket,
+          attributes: ['id'],
+          where: { screening_id: screeningId },
+          required: true,
+        },
+      ],
       attributes: ['seat_id'],
     });
 
-    const bookedSeatIds = bookedTickets.map((ticket) => ticket.seat_id);
+    const bookedSeatIds = ticketSeats.map((ticketSeat) => ticketSeat.seat_id);
 
     // Lấy ID của các ghế đang được giữ tạm thời và chưa hết hạn
     const reservations = await this.seatReservationModel.findAll({

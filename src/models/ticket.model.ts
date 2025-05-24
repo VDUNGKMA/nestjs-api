@@ -9,22 +9,23 @@ import {
 } from 'sequelize-typescript';
 import { User } from './user.model';
 import { Screening } from './screening.model';
-import { Seat } from './seat.model';
 import { BaseModel } from './base.model';
 import { TicketFoodDrink } from './ticket-food-drink.model';
+import { TicketSeat } from './ticket-seat.model';
 
 // Interface cho các thuộc tính của Ticket
 export interface TicketAttributes {
   user_id: number;
   screening_id: number;
-  seat_id?: number; // Có thể null
   booking_time?: Date; // Tùy chọn vì có giá trị mặc định
   status?: 'booked' | 'paid' | 'cancelled'; // Tùy chọn vì có giá trị mặc định
+  total_price?: number; // Tổng giá của tất cả ghế
 }
 
 @Table({
   tableName: 'Tickets',
   timestamps: true,
+  underscored: true,
 })
 export class Ticket
   extends BaseModel<TicketAttributes>
@@ -50,16 +51,6 @@ export class Ticket
   @BelongsTo(() => Screening)
   screening: Screening;
 
-  @ForeignKey(() => Seat)
-  @Column({
-    type: DataType.INTEGER,
-    allowNull: true,
-  })
-  seat_id: number;
-
-  @BelongsTo(() => Seat)
-  seat: Seat;
-
   @Column({
     type: DataType.DATE,
     defaultValue: DataType.NOW,
@@ -73,7 +64,18 @@ export class Ticket
   })
   status!: 'booked' | 'paid' | 'cancelled';
 
+  // Thêm tổng giá tiền
+  @Column({
+    type: DataType.FLOAT,
+    allowNull: true,
+  })
+  total_price?: number;
+
   // Relationship with TicketFoodDrink
   @HasMany(() => TicketFoodDrink)
   foodDrinks: TicketFoodDrink[];
+
+  // Thêm quan hệ với TicketSeat
+  @HasMany(() => TicketSeat)
+  ticketSeats: TicketSeat[];
 }

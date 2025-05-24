@@ -13,6 +13,8 @@ import { RefreshToken } from './refresh-token.model';
 import { SeatReservation } from './seat-reservation.model';
 import { FoodDrink } from './food-drink.model';
 import { TicketFoodDrink } from './ticket-food-drink.model';
+import { TicketSeat } from './ticket-seat.model';
+import { MovieRating } from './movie-rating.model';
 
 export const models = [
   User,
@@ -30,4 +32,6 @@ export const models = [
   SeatReservation,
   FoodDrink,
   TicketFoodDrink,
+  TicketSeat,
+  MovieRating,
 ];

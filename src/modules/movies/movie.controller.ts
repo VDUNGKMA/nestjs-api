@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   BadRequestException,
   UploadedFile,
+  Req,
 } from '@nestjs/common';
 import { MoviesService } from './movie.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
@@ -23,6 +24,7 @@ import { Public } from 'src/decorators/public-route.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { MovieRating } from '../../models/movie-rating.model';
 
 @Controller('movies')
 export class MovieController {
@@ -169,5 +171,28 @@ export class MovieController {
       throw new BadRequestException('No file uploaded');
     }
     return this.movieService.updateMovieTrailer(id, file);
+  }
+
+  @Post(':movieId/rate')
+  async rateMovie(
+    @Param('movieId') movieId: number,
+    @Body() body: { user_id: number; rating: number; comment?: string },
+  ) {
+    return this.movieService.rateMovie(
+      movieId,
+      body.user_id,
+      body.rating,
+      body.comment,
+    );
+  }
+
+  @Get(':movieId/average-rating')
+  async getAverageRating(@Param('movieId') movieId: number) {
+    return this.movieService.getAverageRating(movieId);
+  }
+
+  @Get(':movieId/ratings')
+  async getRatings(@Param('movieId') movieId: number) {
+    return this.movieService.getRatings(movieId);
   }
 }

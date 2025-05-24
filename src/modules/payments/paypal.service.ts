@@ -60,6 +60,11 @@ export class PayPalService {
     customId?: string,
   ): Promise<any> {
     try {
+      if (currency !== 'USD') {
+        throw new Error(
+          'PayPal chỉ hỗ trợ thanh toán bằng USD. Vui lòng chuyển đổi số tiền sang USD trước khi tạo đơn hàng.',
+        );
+      }
       const accessToken = await this.getAccessToken();
 
       // Use provided URLs or defaults that will work with mobile apps
@@ -346,16 +351,52 @@ export class PayPalService {
         strict: false,
       });
 
-      // Tạo payment cho mỗi vé
+      // Kiểm tra xem transaction_id đã tồn tại chưa
+      try {
+        // Tìm thanh toán với transaction_id tương tự
+        const payments =
+          await paymentService.findByTransactionId(transactionId);
+
+        if (payments && payments.length > 0) {
+          this.logger.warn(
+            `Transaction ${transactionId} đã được xử lý trước đó. Bỏ qua.`,
+          );
+          return;
+        }
+      } catch (checkError) {
+        this.logger.error(
+          'Lỗi khi kiểm tra transaction_id tồn tại:',
+          checkError,
+        );
+        // Tiếp tục xử lý ngay cả khi kiểm tra có lỗi
+      }
+
+      // Tạo payment cho tất cả các vé trong một giao dịch
+      // Mỗi vé sẽ có cùng transaction_id
       for (const ticketId of ticketIds) {
-        await paymentService.create({
-          ticket_id: ticketId,
-          user_id: userId,
-          amount: amount / ticketIds.length,
-          payment_method: 'PayPal',
-          payment_status: 'completed',
-          transaction_id: `${transactionId}-${ticketId}`, // Make unique for each ticket
-        });
+        try {
+          await paymentService.create({
+            ticket_id: ticketId,
+            user_id: userId,
+            amount: amount / ticketIds.length,
+            payment_method: 'PayPal',
+            payment_status: 'completed',
+            transaction_id: transactionId, // Giữ nguyên transaction_id cho tất cả vé
+          });
+        } catch (error) {
+          // Log lỗi cho vé cụ thể nhưng vẫn tiếp tục xử lý các vé khác
+          this.logger.error(
+            `Lỗi khi xử lý thanh toán cho vé ${ticketId}:`,
+            error,
+          );
+
+          // Kiểm tra nếu lỗi là do transactionId đã tồn tại, coi như vé đã được thanh toán
+          if (error?.message?.includes('đã tồn tại')) {
+            this.logger.log(
+              `Vé ${ticketId} có thể đã được thanh toán trước đó với giao dịch ${transactionId}`,
+            );
+          }
+        }
       }
 
       // Gửi thông báo đến user (có thể triển khai sau với socket hoặc push notification)

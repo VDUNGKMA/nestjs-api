@@ -21,6 +21,7 @@ import { SeatSuggestionService } from './seat-suggestion.service';
 import { RedisLockService } from './redis-lock.service';
 import { Op } from 'sequelize';
 import { v4 as uuidv4 } from 'uuid';
+import { TicketSeat } from '../../models/ticket-seat.model';
 
 // Export interface để có thể sử dụng trong controller
 export interface ReservationResult {
@@ -45,6 +46,7 @@ export class SeatReservationService {
     @InjectModel(Screening) private screeningModel: typeof Screening,
     @InjectModel(Seat) private seatModel: typeof Seat,
     @InjectModel(Ticket) private ticketModel: typeof Ticket,
+    @InjectModel(TicketSeat) private ticketSeatModel: typeof TicketSeat,
     private sequelize: Sequelize,
     private seatSuggestionService: SeatSuggestionService,
     private redisLockService: RedisLockService,
@@ -356,15 +358,19 @@ export class SeatReservationService {
 
   // Kiểm tra xem ghế còn trống không
   async isSeatAvailable(screeningId: number, seatId: number): Promise<boolean> {
-    // Kiểm tra trong bảng vé
-    const existingTicket = await this.ticketModel.findOne({
-      where: {
-        screening_id: screeningId,
-        seat_id: seatId,
-      },
+    // Kiểm tra trong bảng TicketSeats
+    const existingTicketSeat = await this.ticketSeatModel.findOne({
+      include: [
+        {
+          model: this.ticketModel,
+          where: { screening_id: screeningId },
+          required: true,
+        },
+      ],
+      where: { seat_id: seatId },
     });
 
-    if (existingTicket) {
+    if (existingTicketSeat) {
       return false;
     }
 
@@ -428,14 +434,21 @@ export class SeatReservationService {
       where: { theater_room_id: screening.theater_room_id },
     });
 
-    // Lấy danh sách ghế đã đặt
-    const bookedTickets = await this.ticketModel.findAll({
-      where: { screening_id: screeningId },
+    // Lấy danh sách ghế đã đặt thông qua TicketSeats
+    const bookedTicketSeats = await this.ticketSeatModel.findAll({
+      include: [
+        {
+          model: this.ticketModel,
+          where: { screening_id: screeningId },
+          required: true,
+        },
+      ],
       attributes: ['seat_id'],
     });
 
+    // Tạo set chứa seat_id đã được đặt
     const bookedSeatIds = new Set(
-      bookedTickets.map((ticket) => ticket.seat_id),
+      bookedTicketSeats.map((ticketSeat) => ticketSeat.seat_id),
     );
 
     // Lấy danh sách ghế đang giữ tạm thời và chưa hết hạn
@@ -443,7 +456,7 @@ export class SeatReservationService {
       where: {
         screening_id: screeningId,
         expires_at: {
-          [Symbol.for('gt')]: new Date(),
+          [Op.gt]: new Date(),
         },
       },
       attributes: ['seat_id'],

@@ -8,10 +8,17 @@ import { PaymentService } from './payments.service';
 import { PaymentController } from './payments.controller';
 import { SeatReservation } from '../../models/seat-reservation.model';
 import { PayPalService } from './paypal.service';
+import { TicketSeat } from '../../models/ticket-seat.model';
 
 @Module({
   imports: [
-    SequelizeModule.forFeature([Payment, Ticket, User, SeatReservation]),
+    SequelizeModule.forFeature([
+      Payment,
+      Ticket,
+      User,
+      SeatReservation,
+      TicketSeat,
+    ]),
   ],
   controllers: [PaymentController],
   providers: [PaymentService, PayPalService],

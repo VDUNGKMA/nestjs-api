@@ -2,6 +2,7 @@ import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
 import { Ticket } from './ticket.model';
 import { Payment } from './payment.model';
 
+
 interface UserCreationAttrs {
   name: string;
   email: string;
@@ -60,4 +61,6 @@ export class User extends Model<User, UserCreationAttrs> {
   // Một người dùng có thể có nhiều giao dịch thanh toán
   @HasMany(() => Payment)
   payments: Payment[];
+
+
 }

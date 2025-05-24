@@ -10,6 +10,12 @@ import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 import { SeatReservation } from '../../models/seat-reservation.model';
 import { FoodDrink } from '../../models/food-drink.model';
 import { TicketFoodDrink } from '../../models/ticket-food-drink.model';
+import { TicketSeat } from '../../models/ticket-seat.model';
+import { Movie } from '../../models/movie.model';
+import { TheaterRoom } from '../../models/theater-room.model';
+import { Theater } from '../../models/theater.model';
+import { TicketCleanupService } from './ticket-cleanup.service';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -21,10 +27,15 @@ import { TicketFoodDrink } from '../../models/ticket-food-drink.model';
       SeatReservation,
       FoodDrink,
       TicketFoodDrink,
+      TicketSeat,
+      Movie,
+      TheaterRoom,
+      Theater,
     ]),
+    ScheduleModule.forRoot(),
   ],
   controllers: [TicketController],
-  providers: [TicketService, JwtAuthGuard],
+  providers: [TicketService, JwtAuthGuard, TicketCleanupService],
   exports: [TicketService],
 })
 export class TicketModule {}

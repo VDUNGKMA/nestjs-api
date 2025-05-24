@@ -205,4 +205,26 @@ export class ScreeningService {
       order: [['start_time', 'ASC']],
     });
   }
+
+  // Lấy tất cả suất chiếu (không lọc end_time) - dành cho admin, có phân trang
+  async findAllForAdmin(page: number = 1, pageSize: number = 10) {
+    const offset = (page - 1) * pageSize;
+    const { count, rows } = await this.screeningModel.findAndCountAll({
+      include: [
+        {
+          model: TheaterRoom,
+          include: [{ model: Theater }],
+        },
+      ],
+      order: [['start_time', 'ASC']],
+      offset,
+      limit: pageSize,
+    });
+    return {
+      data: rows,
+      total: count,
+      page,
+      pageSize,
+    };
+  }
 }

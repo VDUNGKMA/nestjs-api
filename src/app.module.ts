@@ -16,13 +16,17 @@ import { SeatModule } from './modules/seats/seats.module';
 import { ScreeningModule } from './modules/screenings/screenings.module';
 import { TicketModule } from './modules/tickets/tickets.module';
 import { PaymentModule } from './modules/payments/payment.module';
-import { QRCodeModule } from './modules/qr-codes/qr-codes.module';
+// import { QRCodeModule } from './modules/qr-codes/qr-codes.module'; // Tạm thời comment lại
 import { SeatReservationsModule } from './modules/seat-reservations/seat-reservations.module';
 import { FoodDrinksModule } from './modules/food-drinks/food-drinks.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { BullModule } from '@nestjs/bull';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
+import { TicketSeatsModule } from './modules/ticket-seats/ticket-seats.module';
+import { MovieRating } from './models/movie-rating.model';
+// import { WatchHistoryModule } from './modules/watch-history/watch-history.module';
+// import { RecommendationModule } from './modules/recommendation/recommendation.module';
 
 @Module({
   imports: [
@@ -60,6 +64,7 @@ import { redisStore } from 'cache-manager-redis-store';
         acquire: 60000,
       },
     }),
+    SequelizeModule.forFeature([MovieRating]),
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: async (configService: ConfigService) => ({
@@ -107,10 +112,13 @@ import { redisStore } from 'cache-manager-redis-store';
     ScreeningModule,
     TicketModule,
     PaymentModule,
-    QRCodeModule,
+    // QRCodeModule, // Tạm thời comment lại
     SeatReservationsModule,
     FoodDrinksModule,
     UploadModule,
+    TicketSeatsModule,
+    // WatchHistoryModule,
+    // RecommendationModule,
   ],
   controllers: [AppController],
   providers: [

@@ -16,6 +16,7 @@ export interface TicketFoodDrinkAttributes {
   food_drink_id: number;
   quantity: number;
   unit_price: number;
+  total_price: number;
   status: 'pending' | 'ready' | 'delivered' | 'cancelled';
 }
 
@@ -59,6 +60,12 @@ export class TicketFoodDrink
     allowNull: false,
   })
   unit_price: number;
+
+  @Column({
+    type: DataType.DECIMAL(10, 2),
+    allowNull: false,
+  })
+  total_price: number;
 
   @Column({
     type: DataType.ENUM('pending', 'ready', 'delivered', 'cancelled'),

@@ -1,4 +1,4 @@
-import { IsNumber, IsEnum, IsNotEmpty, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
+import { IsNumber, IsArray, ValidateNested, Min, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -13,21 +13,25 @@ class FoodDrinkItem {
   quantity: number;
 }
 
-export class CreateTicketDto {
-  @ApiProperty({ description: 'ID của người dùng đặt vé' })
-  @IsNumber()
-  @IsNotEmpty()
-  user_id: number;
-
+export class CreateMultipleSeatsTicketDto {
   @ApiProperty({ description: 'ID của suất chiếu' })
   @IsNumber()
-  @IsNotEmpty()
   screening_id: number;
 
-  @ApiProperty({ description: 'ID của ghế (tùy chọn)' })
+  @ApiProperty({ description: 'Danh sách ID của các ghế', type: [Number] })
+  @IsArray()
+  @IsNumber({}, { each: true })
+  seat_ids: number[];
+
+  @ApiProperty({ 
+    description: 'Danh sách giá của từng ghế (tùy chọn)', 
+    type: [Number],
+    required: false 
+  })
   @IsOptional()
-  @IsNumber()
-  seat_id?: number;
+  @IsArray()
+  @IsNumber({}, { each: true })
+  prices?: number[];
 
   @ApiProperty({
     description: 'Danh sách đồ ăn/đồ uống (tùy chọn)',
@@ -39,8 +43,4 @@ export class CreateTicketDto {
   @ValidateNested({ each: true })
   @Type(() => FoodDrinkItem)
   food_drinks?: FoodDrinkItem[];
-
-  @IsEnum(['booked', 'paid', 'cancelled'])
-  @IsOptional()
-  status?: 'booked' | 'paid' | 'cancelled';
 }

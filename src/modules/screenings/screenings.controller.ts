@@ -24,11 +24,15 @@ export class ScreeningController {
     return this.screeningService.create(createScreeningDto);
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.screeningService.findAll();
-  // }
-
+  @Get('admin')
+  findAllForAdmin(
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const pageNum = page ? Number(page) : 1;
+    const pageSizeNum = pageSize ? Number(pageSize) : 10;
+    return this.screeningService.findAllForAdmin(pageNum, pageSizeNum);
+  }
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.screeningService.findOne(id);
@@ -55,6 +59,11 @@ export class ScreeningController {
     @Query('theaterRoomId') theaterRoomId?: number,
     @Query('movieId') movieId?: number,
   ) {
-    return this.screeningService.findAll({ date, theaterId, theaterRoomId, movieId });
+    return this.screeningService.findAll({
+      date,
+      theaterId,
+      theaterRoomId,
+      movieId,
+    });
   }
 }
