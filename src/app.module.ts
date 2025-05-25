@@ -25,8 +25,8 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-store';
 import { TicketSeatsModule } from './modules/ticket-seats/ticket-seats.module';
 import { MovieRating } from './models/movie-rating.model';
+import { RecommendationModule } from './modules/recommendation/recommendation.module';
 // import { WatchHistoryModule } from './modules/watch-history/watch-history.module';
-// import { RecommendationModule } from './modules/recommendation/recommendation.module';
 
 @Module({
   imports: [
@@ -118,7 +118,7 @@ import { MovieRating } from './models/movie-rating.model';
     UploadModule,
     TicketSeatsModule,
     // WatchHistoryModule,
-    // RecommendationModule,
+    RecommendationModule,
   ],
   controllers: [AppController],
   providers: [

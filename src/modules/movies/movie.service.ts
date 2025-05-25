@@ -340,6 +340,39 @@ export class MoviesService {
     });
   }
 
+  async updateMovieAverageRating(movieId: number) {
+    const { average } = await this.getAverageRating(movieId);
+    console.log(
+      'Cập nhật rating trung bình:',
+      average,
+      'cho movieId:',
+      movieId,
+    );
+    const [affectedRows] = await this.movieModel.update(
+      { rating: average },
+      { where: { id: movieId } },
+    );
+    console.log('Số dòng bị ảnh hưởng:', affectedRows);
+  }
+
+  async updateMoviePopularity(movieId: number) {
+    const { average, count: ratingsCount } =
+      await this.getAverageRating(movieId);
+    // Lấy tất cả screening của phim này
+    const screenings = await this.screeningModel.findAll({
+      where: { movie_id: movieId },
+    });
+    const screeningIds = screenings.map((s) => s.id);
+    let ticketsCount = 0;
+    if (screeningIds.length > 0 && this.sequelize.models.Ticket) {
+      ticketsCount = await this.sequelize.models.Ticket.count({
+        where: { screening_id: screeningIds },
+      });
+    }
+    const popularity = ratingsCount * 2 + average * 10 + ticketsCount * 1;
+    await this.movieModel.update({ popularity }, { where: { id: movieId } });
+  }
+
   async rateMovie(
     movieId: number,
     userId: number,
@@ -363,6 +396,10 @@ export class MoviesService {
       if (comment !== undefined) movieRating.comment = comment;
       await movieRating.save();
     }
+    // Cập nhật điểm trung bình vào Movie
+    await this.updateMovieAverageRating(movieId);
+    // Cập nhật popularity vào Movie
+    await this.updateMoviePopularity(movieId);
     return { success: true, rating: movieRating };
   }
 
@@ -381,5 +418,45 @@ export class MoviesService {
       order: [['createdAt', 'DESC']],
     });
     return ratings;
+  }
+
+  async getTopRatedMovies(
+    minRating: number = 4,
+    limit: number = 10,
+  ): Promise<Movie[]> {
+    return this.movieModel.findAll({
+      where: {
+        rating: { [Op.gte]: minRating },
+      },
+      order: [['rating', 'DESC']],
+      limit,
+      include: [
+        {
+          model: Genre,
+          through: { attributes: [] },
+          as: 'genres',
+        },
+      ],
+    });
+  }
+
+  async getTopPopularMovies(
+    minPopularity: number = 45,
+    limit: number = 10,
+  ): Promise<Movie[]> {
+    return this.movieModel.findAll({
+      where: {
+        popularity: { [Op.gte]: minPopularity },
+      },
+      order: [['popularity', 'DESC']],
+      limit,
+      include: [
+        {
+          model: Genre,
+          through: { attributes: [] },
+          as: 'genres',
+        },
+      ],
+    });
   }
 }

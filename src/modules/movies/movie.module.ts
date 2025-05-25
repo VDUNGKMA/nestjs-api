@@ -7,10 +7,19 @@ import { MovieController } from './movie.controller';
 import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 import { Genre } from 'src/models/genre.model';
 import { Screening } from 'src/models/screening.model';
-
+import { MovieRating } from '../../models/movie-rating.model';
 @Module({
-  imports: [SequelizeModule.forFeature([Movie, MovieGenre, Genre,Screening])],
+  imports: [
+    SequelizeModule.forFeature([
+      Movie,
+      MovieGenre,
+      Genre,
+      Screening,
+      MovieRating,
+    ]),
+  ],
   controllers: [MovieController],
   providers: [MoviesService, JwtAuthGuard],
+  exports: [MoviesService],
 })
 export class MovieModule {}

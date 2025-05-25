@@ -47,11 +47,11 @@ export class MovieController {
     // Trả về tất cả phim đã phát hành, không yêu cầu phải có suất chiếu trong ngày hôm nay
     return this.movieService.findAll({ nowPlaying: true });
   }
-  @Public()
-  @Get('top-rated')
-  async getTopRatedMovies(): Promise<Movie[]> {
-    return this.movieService.findAll({ topRated: true });
-  }
+  // @Public()
+  // @Get('top-rated')
+  // async getTopRatedMovies(): Promise<Movie[]> {
+  //   return this.movieService.findAll({ topRated: true });
+  // }
 
   @Public()
   @Get('currently-showing')
@@ -59,6 +59,18 @@ export class MovieController {
     @Query('days', new ParseIntPipe({ optional: true })) days?: number,
   ): Promise<Movie[]> {
     return this.movieService.getShowingMovies(days || 14);
+  }
+
+  @Public()
+  @Get('top-rated-list')
+  async getTopRatedList(): Promise<Movie[]> {
+    return this.movieService.getTopRatedMovies();
+  }
+
+  @Public()
+  @Get('top-popular')
+  async getTopPopularMovies(): Promise<Movie[]> {
+    return this.movieService.getTopPopularMovies();
   }
 
   // Regular endpoints
@@ -185,12 +197,13 @@ export class MovieController {
       body.comment,
     );
   }
-
+  @Public()
   @Get(':movieId/average-rating')
   async getAverageRating(@Param('movieId') movieId: number) {
     return this.movieService.getAverageRating(movieId);
   }
 
+  @Public()
   @Get(':movieId/ratings')
   async getRatings(@Param('movieId') movieId: number) {
     return this.movieService.getRatings(movieId);
