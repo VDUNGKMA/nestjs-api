@@ -27,7 +27,7 @@ import { TicketSeatsModule } from './modules/ticket-seats/ticket-seats.module';
 import { MovieRating } from './models/movie-rating.model';
 import { RecommendationModule } from './modules/recommendation/recommendation.module';
 // import { WatchHistoryModule } from './modules/watch-history/watch-history.module';
-
+import { ExportModule } from './modules/export/export.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), // Load .env
@@ -119,6 +119,7 @@ import { RecommendationModule } from './modules/recommendation/recommendation.mo
     TicketSeatsModule,
     // WatchHistoryModule,
     RecommendationModule,
+    ExportModule,
   ],
   controllers: [AppController],
   providers: [

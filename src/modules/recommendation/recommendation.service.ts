@@ -1,8 +1,19 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { MoviesService } from '../movies/movie.service';
 import { TicketService } from '../tickets/tickets.service';
 import * as natural from 'natural';
 import * as _ from 'lodash';
+import axios from 'axios';
+
+function getHoliday(now: Date): string | null {
+  const month = now.getMonth() + 1;
+  const date = now.getDate();
+  if (month === 2 && date === 14) return 'Valentine';
+  if (month === 12 && date === 24) return 'Christmas';
+  if (month === 6 && date === 1) return 'Children';
+  // ... thêm các ngày lễ khác
+  return null;
+}
 
 @Injectable()
 export class RecommendationService {
@@ -187,5 +198,120 @@ export class RecommendationService {
       };
     });
     return safeMovies;
+  }
+
+  // Gợi ý phim mới ra rạp (trong 14 ngày gần nhất)
+  async getNewMovies(topN = 10) {
+    const allMovies = await this.moviesService.findAll({});
+    const now = new Date();
+    const recentMovies = allMovies
+      .filter(
+        (m) =>
+          m.release_date &&
+          new Date(m.release_date) >
+            new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000),
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.release_date).getTime() -
+          new Date(a.release_date).getTime(),
+      )
+      .slice(0, topN);
+    return recentMovies;
+  }
+
+  // Gợi ý phim theo địa lý (giả lập: truyền location vào, thực tế lấy từ IP)
+  async getMoviesByLocation(location: string, topN = 10) {
+    // Giả lập: lọc phim có trường location hoặc rạp gần location (nếu có dữ liệu)
+    const allMovies = await this.moviesService.findAll({});
+    // Ví dụ: lọc phim có trường location hoặc rạp gần location
+    // Ở đây chỉ lọc ngẫu nhiên
+    return _.shuffle(allMovies).slice(0, topN);
+  }
+
+  // Gợi ý phim theo ngày, giờ
+  async getMoviesByTime(topN = 10) {
+    const allMovies = await this.moviesService.findAll({});
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay(); // 0: Chủ nhật, 6: Thứ 7
+    let genres: string[] = [];
+    if (day === 0 || day === 6 || hour >= 18) {
+      genres = ['Tình cảm', 'Kinh Dị', 'Gia đình'];
+    } else {
+      genres = ['Hoạt Hình', 'Phiêu lưu', 'Hành động'];
+    }
+    // Lọc phim theo genres ưu tiên
+    const filtered = allMovies.filter(
+      (m) => m.genres && m.genres.some((g) => genres.includes(g.name)),
+    );
+    return filtered.slice(0, topN);
+  }
+
+  // Gợi ý phim theo ngày lễ
+  async getMoviesByHoliday(topN = 10) {
+    const allMovies = await this.moviesService.findAll({});
+    const now = new Date();
+    const holiday = getHoliday(now);
+    let genres: string[] = [];
+    if (holiday === 'Valentine') genres = ['Tình cảm', 'Gia đình'];
+    else if (holiday === 'Christmas') genres = ['Gia đình', 'Hoạt Hình'];
+    else if (holiday === 'Children') genres = ['Hoạt Hình', 'Phiêu lưu'];
+    else return []; // Không phải ngày lễ
+    const filtered = allMovies.filter(
+      (m) => m.genres && m.genres.some((g) => genres.includes(g.name)),
+    );
+    return filtered.slice(0, topN);
+  }
+
+  // Gợi ý phim theo thời tiết (dùng openweathermap, cần truyền location và API key)
+  async getMoviesByWeather(location: string, topN = 10) {
+    const apiKey = '6763fe4a2577df20438cd6b1a5a087c0'; // <-- Thay bằng API key thật
+    try {
+      const weatherRes = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&appid=${apiKey}&units=metric`,
+      );
+      const weather = weatherRes.data.weather[0].main; // Rain, Clear, Clouds, Snow
+      let genres: string[] = [];
+      console.log("check weather",weather)
+      if (weather === 'Rain' || weather === 'Snow' || weather === 'Clouds') {
+        genres = ['Gia đình', 'Hoạt Hình', 'Tình cảm'];
+      } else if (weather === 'Clear') {
+        genres = ['Phiêu lưu', 'Hành động', 'Hài'];
+      }
+      const allMovies = await this.moviesService.findAll({});
+      const filtered = allMovies.filter(
+        (m) => m.genres && m.genres.some((g) => genres.includes(g.name)),
+      );
+      return filtered.slice(0, topN);
+    } catch (error) {
+      throw new HttpException('Weather API error: ' + error.message, 500);
+    }
+  }
+
+  async getRecommendations(userId: number, topN: number = 10) {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/recommend', {
+        user_id: userId,
+        top_n: topN,
+      });
+      return response.data.recommendations;
+    } catch (error) {
+      throw new HttpException('AI service error: ' + error.message, 500);
+    }
+  }
+  async getWideDeepRecommendations(userId: number, topN: number = 10) {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/recommend1', {
+        user_id: userId,
+        top_n: topN,
+      });
+      return response.data.recommendations;
+    } catch (error) {
+      throw new HttpException(
+        'AI Wide&Deep service error: ' + error.message,
+        500,
+      );
+    }
   }
 }
