@@ -38,9 +38,10 @@ export class AuthService {
 
   async login(user: any) {
     const payload = {
-      email: user.email, 
-      sub: user.id, 
-      role: user.role,  };
+      email: user.email,
+      sub: user.id,
+      role: user.role,
+    };
     const access_token = this.jwtService.sign(payload, {
       expiresIn: process.env.JWT_EXPIRES_IN || '15m',
     });
@@ -55,58 +56,11 @@ export class AuthService {
       refresh_token,
       expiry_date,
     );
-    console.log("check user login",user)
-    return { user, access_token, refresh_token };
+    console.log('check user login', user);
+    const { password, ...userSafe } = user.get ? user.get() : user;
+    return { user: userSafe, access_token, refresh_token };
   }
 
-  // async validateGoogleMobile(idToken: string): Promise<any> {
-  //   try {
-  //     const ticket = await this.googleClient.verifyIdToken({
-  //       idToken,
-  //       audience: process.env.GOOGLE_CLIENT_ID,
-  //     });
-  //     const payload = ticket.getPayload();
-
-  //     if (!payload) {
-  //       throw new UnauthorizedException('Invalid Google ID token: No payload');
-  //     }
-
-  //     const email = payload['email'];
-  //     const displayName = payload['name'];
-  //     const picture = payload['picture'];
-  //     const emailVerified = payload['email_verified'];
-
-  //     if (!email || !emailVerified) {
-  //       throw new BadRequestException(
-  //         'Google ID token missing email or not verified',
-  //       );
-  //     }
-  //     if (!displayName) {
-  //       throw new BadRequestException('Google ID token missing displayName');
-  //     }
-
-  //     let user = await this.usersService.findByEmail(email);
-  //     if (!user) {
-  //       const createUserDto: CreateUserDto = {
-  //         name: displayName,
-  //         email,
-  //         password: undefined,
-  //         role: 'customer',
-  //         image: picture, // Lưu ảnh đại diện từ Google
-  //       };
-  //       user = await this.usersService.createUser(createUserDto);
-  //     } else if (picture && !user.image) {
-  //       // Cập nhật ảnh đại diện nếu chưa có
-  //       await this.usersService.updateUser(user.id, { image: picture });
-  //     }
-
-  //     return { id: user.id, email: user.email, role: user.role };
-  //   } catch (error) {
-  //     throw new UnauthorizedException(
-  //       `Invalid Google ID token: ${error.message}`,
-  //     );
-  //   }
-  // }
   async validateGoogleMobile(idToken: string): Promise<any> {
     try {
       const ticket = await this.googleClient.verifyIdToken({

@@ -6,19 +6,21 @@ import {
   ForeignKey,
   BelongsTo,
   HasMany,
+  HasOne,
 } from 'sequelize-typescript';
 import { User } from './user.model';
 import { Screening } from './screening.model';
 import { BaseModel } from './base.model';
 import { TicketFoodDrink } from './ticket-food-drink.model';
 import { TicketSeat } from './ticket-seat.model';
+import { QR_Code } from './qr-code.model';
 
 // Interface cho các thuộc tính của Ticket
 export interface TicketAttributes {
   user_id: number;
   screening_id: number;
   booking_time?: Date; // Tùy chọn vì có giá trị mặc định
-  status?: 'booked' | 'paid' | 'cancelled'; // Tùy chọn vì có giá trị mặc định
+  status?: 'booked' | 'paid' | 'cancelled' | 'used'; // Tùy chọn vì có giá trị mặc định
   total_price?: number; // Tổng giá của tất cả ghế
 }
 
@@ -58,11 +60,11 @@ export class Ticket
   booking_time: Date;
 
   @Column({
-    type: DataType.ENUM('booked', 'paid', 'cancelled'),
+    type: DataType.ENUM('booked', 'paid', 'cancelled', 'used'),
     allowNull: false,
     defaultValue: 'booked',
   })
-  status!: 'booked' | 'paid' | 'cancelled';
+  status!: 'booked' | 'paid' | 'cancelled' | 'used';
 
   // Thêm tổng giá tiền
   @Column({
@@ -78,4 +80,8 @@ export class Ticket
   // Thêm quan hệ với TicketSeat
   @HasMany(() => TicketSeat)
   ticketSeats: TicketSeat[];
+
+  // Thêm quan hệ với QR_Code
+  @HasOne(() => QR_Code)
+  qrCode: QR_Code;
 }

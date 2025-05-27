@@ -56,6 +56,24 @@ export class ScreeningService {
       );
     }
 
+    // Kiểm tra trùng suất chiếu trong cùng phòng chiếu
+    const overlap = await this.screeningModel.findOne({
+      where: {
+        theater_room_id: createScreeningDto.theater_room_id,
+        [Op.or]: [
+          {
+            start_time: { [Op.lt]: createScreeningDto.end_time },
+            end_time: { [Op.gt]: createScreeningDto.start_time },
+          },
+        ],
+      },
+    });
+    if (overlap) {
+      throw new BadRequestException(
+        'Phòng chiếu đã có suất chiếu trùng thời gian!',
+      );
+    }
+
     const screeningData: ScreeningAttributes = {
       movie_id: createScreeningDto.movie_id,
       theater_room_id: createScreeningDto.theater_room_id,
@@ -119,6 +137,30 @@ export class ScreeningService {
       if (screeningEndTime < movieReleaseDate) {
         throw new BadRequestException(
           'Thời gian kết thúc suất chiếu phải sau ngày phát hành của phim',
+        );
+      }
+
+      // Kiểm tra trùng suất chiếu khi cập nhật (loại trừ chính suất chiếu này)
+      const overlap = await this.screeningModel.findOne({
+        where: {
+          theater_room_id:
+            updateScreeningDto.theater_room_id || screening.theater_room_id,
+          [Op.or]: [
+            {
+              start_time: {
+                [Op.lt]: updateScreeningDto.end_time || screening.end_time,
+              },
+              end_time: {
+                [Op.gt]: updateScreeningDto.start_time || screening.start_time,
+              },
+            },
+          ],
+          id: { [Op.ne]: id },
+        } as any,
+      });
+      if (overlap) {
+        throw new BadRequestException(
+          'Phòng chiếu đã có suất chiếu trùng thời gian!',
         );
       }
     }

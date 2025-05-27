@@ -21,6 +21,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { VerifyQRDto } from './dto/verify-qr.dto';
 
 @ApiTags('tickets')
 @Controller('tickets')
@@ -114,5 +115,11 @@ export class TicketController {
     const { screeningId } = body;
     await this.ticketService.cleanupUserPendingTickets(userId, screeningId);
     return { success: true };
+  }
+
+  @Post('verify-qr')
+  @ApiOperation({ summary: 'Xác nhận vé bằng mã QR' })
+  async verifyTicketByQRCode(@Body() verifyQRDto: VerifyQRDto) {
+    return this.ticketService.verifyTicketByQRCode(verifyQRDto.qr_code);
   }
 }

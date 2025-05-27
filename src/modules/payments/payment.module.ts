@@ -9,6 +9,9 @@ import { PaymentController } from './payments.controller';
 import { SeatReservation } from '../../models/seat-reservation.model';
 import { PayPalService } from './paypal.service';
 import { TicketSeat } from '../../models/ticket-seat.model';
+import { QRCodeModule } from '../qr-codes/qr-codes.module';
+import { QRCodeService } from '../qr-codes/qr-codes.service';
+import { QR_Code } from '../../models/qr-code.model';
 
 @Module({
   imports: [
@@ -18,10 +21,12 @@ import { TicketSeat } from '../../models/ticket-seat.model';
       User,
       SeatReservation,
       TicketSeat,
+      QR_Code,
     ]),
+    QRCodeModule,
   ],
   controllers: [PaymentController],
-  providers: [PaymentService, PayPalService],
+  providers: [PaymentService, PayPalService, QRCodeService],
   exports: [PaymentService, PayPalService],
 })
 export class PaymentModule {}

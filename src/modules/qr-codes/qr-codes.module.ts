@@ -11,5 +11,6 @@ import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
   imports: [SequelizeModule.forFeature([QR_Code, Ticket])],
   controllers: [QRCodeController],
   providers: [QRCodeService, JwtAuthGuard],
+  exports: [QRCodeService],
 })
 export class QRCodeModule {}

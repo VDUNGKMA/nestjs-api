@@ -19,6 +19,7 @@ import { Movie } from 'src/models/movie.model';
 import { TheaterRoom } from 'src/models/theater-room.model';
 import { Theater } from 'src/models/theater.model';
 import { TicketSeat } from '../../models/ticket-seat.model';
+import { QR_Code } from '../../models/qr-code.model';
 
 @Injectable()
 export class TicketService {
@@ -310,6 +311,7 @@ export class TicketService {
         },
         { model: TicketSeat, include: [Seat] },
         { model: TicketFoodDrink, include: [FoodDrink] },
+        { model: QR_Code, attributes: ['qr_code'] },
       ],
     });
 
@@ -648,5 +650,62 @@ export class TicketService {
     await this.seatReservationModel.destroy({
       where: { user_id: userId, screening_id: screeningId },
     });
+  }
+
+  async verifyTicketByQRCode(qr_code: string) {
+    let qrData: any;
+    try {
+      qrData = JSON.parse(qr_code);
+    } catch (e) {
+      throw new BadRequestException('QR code không hợp lệ (không phải JSON)');
+    }
+    if (!qrData.ticket_id) {
+      throw new BadRequestException('QR code thiếu ticket_id');
+    }
+    // 1. Tìm vé theo ticket_id
+    const ticket = await this.ticketModel.findByPk(qrData.ticket_id, {
+      include: [
+        {
+          association: 'screening',
+          include: [
+            { association: 'movie' },
+            {
+              association: 'theaterRoom',
+              include: [{ association: 'theater' }],
+            },
+          ],
+        },
+        { association: 'ticketSeats', include: [{ association: 'seat' }] },
+      ],
+    });
+    if (!ticket) throw new NotFoundException('Không tìm thấy vé');
+
+    // Kiểm tra thời gian suất chiếu
+    const now = new Date();
+    const startTime = new Date(ticket.screening.start_time);
+    const endTime = new Date(ticket.screening.end_time);
+    const startTimeMinus15 = new Date(startTime.getTime() - 15 * 60 * 1000);
+
+    if (now < startTimeMinus15) {
+      return {
+        success: false,
+        message: 'Chưa đến giờ chiếu, vui lòng đợi.',
+        ticket,
+      };
+    }
+    if (now > endTime) {
+      return { success: false, message: 'Vé đã hết hạn.', ticket };
+    }
+    // Nếu hợp lệ, cập nhật trạng thái vé là đã sử dụng
+    ticket.status = 'used';
+    await ticket.save();
+
+    // 4. Trả về thông tin vé và thông tin QR code
+    return {
+      success: true,
+      message: 'Vé hợp lệ, đã cập nhật trạng thái',
+      ticket,
+      qr_info: qrData,
+    };
   }
 }

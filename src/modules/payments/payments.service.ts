@@ -20,6 +20,8 @@ import { Sequelize } from 'sequelize-typescript';
 import { Transaction } from 'sequelize';
 import { FoodDrinksService } from '../food-drinks/food-drinks.service';
 import { TicketSeat } from '../../models/ticket-seat.model';
+import { QRCodeService } from '../qr-codes/qr-codes.service';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class PaymentService {
@@ -38,6 +40,7 @@ export class PaymentService {
     @InjectModel(TicketSeat)
     private ticketSeatModel: typeof TicketSeat,
     private sequelize: Sequelize,
+    private qrCodeService: QRCodeService,
   ) {
     // Truy cập các model qua Sequelize
     this.foodDrinkModel = this.sequelize.models.FoodDrinks as typeof FoodDrink;
@@ -150,6 +153,25 @@ export class PaymentService {
           // Nếu thanh toán thành công, cập nhật trạng thái vé
           if (payment.payment_status === 'completed') {
             await ticket.update({ status: 'paid' }, { transaction });
+
+            // Tự động sinh QR code nếu chưa có
+            try {
+              const existingQRCode = await this.qrCodeService[
+                'qrCodeModel'
+              ].findOne({ where: { ticket_id: ticket.id }, transaction });
+              if (!existingQRCode) {
+                // Dữ liệu QR code có thể là ticket_id hoặc thông tin mã hóa khác
+                const qrPayload = JSON.stringify({ ticket_id: ticket.id });
+                const qr_code = await QRCode.toDataURL(qrPayload);
+                await this.qrCodeService.create({
+                  ticket_id: ticket.id,
+                  qr_code,
+                });
+              }
+            } catch (err) {
+              // Log lỗi nhưng không làm fail thanh toán
+              console.error('Lỗi sinh QR code:', err);
+            }
 
             // Cập nhật trạng thái đơn đồ ăn nếu có
             if (ticket.foodDrinks && ticket.foodDrinks.length > 0) {

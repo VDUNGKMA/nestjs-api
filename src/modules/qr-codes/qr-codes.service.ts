@@ -19,7 +19,21 @@ export class QRCodeService {
 
   // Tạo QR code mới
   async create(createQRCodeDto: CreateQRCodeDto): Promise<QR_Code> {
-    const ticket = await this.ticketModel.findByPk(createQRCodeDto.ticket_id);
+    const ticket = await this.ticketModel.findByPk(createQRCodeDto.ticket_id, {
+      include: [
+        {
+          association: 'screening',
+          include: [
+            { association: 'movie' },
+            {
+              association: 'theaterRoom',
+              include: [{ association: 'theater' }],
+            },
+          ],
+        },
+        { association: 'ticketSeats', include: [{ association: 'seat' }] },
+      ],
+    });
     if (!ticket) {
       throw new NotFoundException(
         `Không tìm thấy vé với id ${createQRCodeDto.ticket_id}`,
@@ -36,9 +50,40 @@ export class QRCodeService {
       );
     }
 
+    // Build QR data object
+    const screening = ticket.screening;
+    const movie = screening?.movie;
+    const theaterRoom = screening?.theaterRoom;
+    const theater = theaterRoom?.theater;
+    const seats = (ticket.ticketSeats || [])
+      .map((ts) => {
+        const s = ts.seat;
+        return s ? `${s.seat_row}${s.seat_number}` : undefined;
+      })
+      .filter(Boolean);
+
+    // Convert start_time to Vietnam time (UTC+7) ISO string
+    let startTimeVN: string | undefined = undefined;
+    if (screening?.start_time) {
+      const date = new Date(screening.start_time);
+      date.setHours(date.getHours() + 7);
+      startTimeVN = date.toISOString().replace('Z', '+07:00');
+    }
+    const qrData = {
+      ticket_id: ticket.id,
+      screening_id: screening?.id,
+      movie: movie?.title,
+      theater: theater?.name,
+      room: theaterRoom?.room_name,
+      seats,
+      amount: ticket.total_price,
+      start_time: startTimeVN,
+    };
+    const qrCodeString = JSON.stringify(qrData);
+
     const qrCodeData: QRCodeAttributes = {
       ticket_id: createQRCodeDto.ticket_id,
-      qr_code: createQRCodeDto.qr_code,
+      qr_code: qrCodeString,
     };
 
     return this.qrCodeModel.create(qrCodeData);

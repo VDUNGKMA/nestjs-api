@@ -28,6 +28,7 @@ import { MovieRating } from './models/movie-rating.model';
 import { RecommendationModule } from './modules/recommendation/recommendation.module';
 // import { WatchHistoryModule } from './modules/watch-history/watch-history.module';
 import { ExportModule } from './modules/export/export.module';
+import { QRCodeModule } from './modules/qr-codes/qr-codes.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }), // Load .env
@@ -112,7 +113,7 @@ import { ExportModule } from './modules/export/export.module';
     ScreeningModule,
     TicketModule,
     PaymentModule,
-    // QRCodeModule, // Tạm thời comment lại
+    QRCodeModule,
     SeatReservationsModule,
     FoodDrinksModule,
     UploadModule,
