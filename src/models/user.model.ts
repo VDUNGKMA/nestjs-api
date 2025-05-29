@@ -2,12 +2,12 @@ import { Table, Column, Model, DataType, HasMany } from 'sequelize-typescript';
 import { Ticket } from './ticket.model';
 import { Payment } from './payment.model';
 
-
 interface UserCreationAttrs {
   name: string;
   email: string;
   password: string;
   role?: string;
+  phone?: string;
 }
 
 @Table({
@@ -54,6 +54,19 @@ export class User extends Model<User, UserCreationAttrs> {
   })
   image: string;
 
+  @Column({
+    type: DataType.STRING,
+    unique: true,
+    allowNull: true,
+  })
+  phone: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+  })
+  fcm_token: string;
+
   // Một người dùng có thể có nhiều vé
   @HasMany(() => Ticket)
   tickets: Ticket[];
@@ -61,6 +74,4 @@ export class User extends Model<User, UserCreationAttrs> {
   // Một người dùng có thể có nhiều giao dịch thanh toán
   @HasMany(() => Payment)
   payments: Payment[];
-
-
 }

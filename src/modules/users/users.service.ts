@@ -9,10 +9,16 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Mutable } from '../../common/types/mutable';
 import * as bcrypt from 'bcrypt';
+import { Op } from 'sequelize';
+import { Friendship } from '../../models/friendship.model';
+import { Message } from '../../models/message.model';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User) private userModel: typeof User) {}
+  constructor(
+    @InjectModel(User) private userModel: typeof User,
+    @InjectModel(Message) private messageModel: typeof Message,
+  ) {}
 
   IsEmailExist = async (email: string) => {
     const user = await this.userModel.findOne({ where: { email } });
@@ -139,28 +145,202 @@ export class UsersService {
   }> {
     // Đếm tổng số người dùng
     const totalUsers = await this.userModel.count();
-    
+
     // Đếm số lượng admin
     const totalAdmins = await this.userModel.count({
-      where: { role: 'admin' }
+      where: { role: 'admin' },
     });
-    
+
     // Đếm số lượng khách hàng
     const totalCustomers = await this.userModel.count({
-      where: { role: 'customer' }
+      where: { role: 'customer' },
     });
-    
+
     // Đếm số lượng nhân viên
     const totalStaff = await this.userModel.count({
-      where: { role: 'staff' }
+      where: { role: 'staff' },
     });
-    
+
     return {
       totalUsers,
       totalAdmins,
       totalCustomers,
-      totalStaff
+      totalStaff,
     };
   }
- 
+  async searchUsers(query: string, myId: number) {
+    console.log('SEARCH QUERY:', query, 'MY ID:', myId);
+    const result = await this.userModel.findAll({
+      where: {
+        [Op.and]: [
+          { id: { [Op.ne]: myId } },
+          { role: 'customer' },
+          {
+            [Op.or]: [
+              { name: { [Op.iLike]: `%${query}%` } },
+              { phone: { [Op.iLike]: `%${query}%` } },
+            ],
+          },
+        ],
+      },
+      attributes: ['id', 'name', 'phone', 'image'],
+    });
+    console.log('SEARCH RESULT:', result);
+    return result;
+  }
+
+  // Gửi lời mời kết bạn
+  async sendFriendRequest(userId: number, friendId: number) {
+    const existing = await Friendship.findOne({
+      where: {
+        user_id: userId,
+        friend_id: friendId,
+      },
+    });
+    if (existing)
+      throw new BadRequestException('Friend request already sent or exists');
+    const request = await Friendship.create({
+      user_id: userId,
+      friend_id: friendId,
+      status: 'pending',
+    } as any);
+    return request;
+  }
+
+  // Chấp nhận lời mời kết bạn
+  async acceptFriendRequest(userId: number, friendId: number) {
+    const friendship = await Friendship.findOne({
+      where: { user_id: friendId, friend_id: userId, status: 'pending' },
+    });
+    if (!friendship) throw new NotFoundException('No pending friend request');
+    friendship.status = 'accepted';
+    await friendship.save();
+    await Friendship.create({
+      user_id: userId,
+      friend_id: friendId,
+      status: 'accepted',
+    } as any);
+    return friendship;
+  }
+
+  // Từ chối lời mời kết bạn
+  async rejectFriendRequest(userId: number, friendId: number) {
+    const friendship = await Friendship.findOne({
+      where: { user_id: friendId, friend_id: userId, status: 'pending' },
+    });
+    if (!friendship) throw new NotFoundException('No pending friend request');
+    friendship.status = 'rejected';
+    await friendship.save();
+    return friendship;
+  }
+
+  // Lấy danh sách bạn bè
+  async getFriends(userId: number) {
+    const friends = await Friendship.findAll({
+      where: { user_id: userId, status: 'accepted' },
+      include: [
+        {
+          model: User,
+          as: 'friend',
+          attributes: ['id', 'name', 'phone', 'image'],
+        },
+      ],
+    });
+    return friends.map((f) => f.friend);
+  }
+
+  // Lấy danh sách lời mời kết bạn đang chờ xử lý
+  async getPendingRequests(userId: number) {
+    return Friendship.findAll({
+      where: { friend_id: userId, status: 'pending' },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'phone', 'image'],
+        },
+      ],
+    });
+  }
+
+  // Kiểm tra 2 user có phải bạn bè không
+  async areFriends(userId: number, friendId: number) {
+    const f1 = await Friendship.findOne({
+      where: { user_id: userId, friend_id: friendId, status: 'accepted' },
+    });
+    const f2 = await Friendship.findOne({
+      where: { user_id: friendId, friend_id: userId, status: 'accepted' },
+    });
+    return !!(f1 && f2);
+  }
+
+  // Gửi tin nhắn (chỉ cho phép bạn bè)
+  async sendMessage(senderId: number, receiverId: number, content: string) {
+    if (!(await this.areFriends(senderId, receiverId))) {
+      throw new BadRequestException('You can only message your friends');
+    }
+    return Message.create({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content,
+    } as any);
+  }
+
+  // Lấy lịch sử chat giữa 2 user (chỉ cho phép bạn bè)
+  async getChatHistory(userId: number, friendId: number) {
+    if (!(await this.areFriends(userId, friendId))) {
+      throw new BadRequestException('You can only view chat with your friends');
+    }
+    return Message.findAll({
+      where: {
+        [Op.or]: [
+          { sender_id: userId, receiver_id: friendId },
+          { sender_id: friendId, receiver_id: userId },
+        ],
+      },
+      order: [['created_at', 'ASC']],
+    });
+  }
+
+  async saveFcmToken(userId: number, fcmToken: string) {
+    const user = await this.userModel.findByPk(userId);
+    if (!user) throw new NotFoundException('User not found');
+    user.fcm_token = fcmToken;
+    await user.save();
+    return { success: true };
+  }
+
+  async getUserById(id: number) {
+    return this.userModel.findByPk(id);
+  }
+
+  async sendImageMessage(
+    senderId: number,
+    receiverId: number,
+    imageUrl: string,
+    content: string,
+  ) {
+    return await this.messageModel.create({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content,
+      imageUrl,
+    } as any);
+  }
+
+  async sendFileMessage(
+    senderId: number,
+    receiverId: number,
+    fileUrl: string,
+    fileName: string,
+    content: string,
+  ) {
+    return await this.messageModel.create({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content,
+      fileUrl,
+      fileName,
+    } as any);
+  }
 }
