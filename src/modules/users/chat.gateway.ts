@@ -40,17 +40,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET,
       });
-      client.data.userId = payload.userId;
-      client.join(`user:${payload.userId}`);
+      // Tự động lấy đúng userId từ payload
+      const userId = payload.userId || payload.sub || payload.id;
+      client.data.userId = userId;
+      client.join(`user:${userId}`);
       this.logger.log(
-        `User ${payload.userId} connected and joined room user:${payload.userId}`,
+        `User ${userId} connected and joined room user:${userId}`,
       );
       // Gửi trạng thái online cho bạn bè
-      const friends = await this.usersService.getFriends(payload.userId);
+      const friends = await this.usersService.getFriends(userId);
       friends.forEach((friend) => {
-        this.server
-          .to(`user:${friend.id}`)
-          .emit('friend_online', { userId: payload.userId });
+        this.server.to(`user:${friend.id}`).emit('friend_online', { userId });
       });
     } catch (e) {
       client.disconnect();
@@ -81,7 +81,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('private_message')
   async handlePrivateMessage(
     @MessageBody()
-    data: { senderId: number; receiverId: number; content: string },
+    data: {
+      senderId: number;
+      receiverId: number;
+      content: string;
+      replyToMessageId?: number;
+    },
     @ConnectedSocket() client: Socket,
   ) {
     const areFriends = await this.usersService.areFriends(
@@ -96,6 +101,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.senderId,
       data.receiverId,
       data.content,
+      data.replyToMessageId,
     );
     this.server.to(`user:${data.receiverId}`).emit('private_message', message);
     this.server.to(`user:${data.senderId}`).emit('private_message', message);
@@ -273,6 +279,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
     }
     this.server.to(`user:${senderId}`).emit('friend_accepted', {
+      by: receiver,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // Gửi thông báo realtime khi lời mời bị từ chối
+  async notifyFriendRejected(senderId: number, receiver: any) {
+    if (!this.server) return;
+    this.server.to(`user:${senderId}`).emit('friend_rejected', {
       by: receiver,
       timestamp: new Date().toISOString(),
     });

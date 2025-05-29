@@ -148,7 +148,18 @@ export class UsersController {
     @Request() req,
     @Body('friendId') friendId: number,
   ) {
-    return this.usersService.rejectFriendRequest(req.user.userId, friendId);
+    const friendship = await this.usersService.rejectFriendRequest(
+      req.user.userId,
+      friendId,
+    );
+    // Gửi notify realtime
+    try {
+      const receiver = await this.usersService.findOne(req.user.userId);
+      await this.chatGateway.notifyFriendRejected(friendId, receiver);
+    } catch (e) {
+      console.warn('Không gửi được notify realtime:', e);
+    }
+    return friendship;
   }
 
   @UseGuards(JwtAuthGuard)

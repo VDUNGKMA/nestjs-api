@@ -25,14 +25,21 @@ export class Message extends Model<Message> {
   @Column({ type: DataType.STRING, allowNull: false })
   content: string;
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({ type: DataType.STRING, allowNull: true, field: 'image_url' })
   imageUrl: string;
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({ type: DataType.STRING, allowNull: true, field: 'file_url' })
   fileUrl: string;
 
-  @Column({ type: DataType.STRING, allowNull: true })
+  @Column({ type: DataType.STRING, allowNull: true, field: 'file_name' })
   fileName: string;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: 'reply_to_message_id',
+  })
+  replyToMessageId: number;
 
   @BelongsTo(() => User, 'sender_id')
   sender: User;

@@ -275,15 +275,37 @@ export class UsersService {
   }
 
   // Gửi tin nhắn (chỉ cho phép bạn bè)
-  async sendMessage(senderId: number, receiverId: number, content: string) {
+  async sendMessage(
+    senderId: number,
+    receiverId: number,
+    content: string,
+    replyToMessageId?: number,
+  ) {
     if (!(await this.areFriends(senderId, receiverId))) {
       throw new BadRequestException('You can only message your friends');
     }
-    return Message.create({
+    const message = await Message.create({
       sender_id: senderId,
       receiver_id: receiverId,
       content,
+      replyToMessageId,
     } as any);
+    let replyToMessage: any = null;
+    if (replyToMessageId) {
+      const found = await Message.findByPk(replyToMessageId, {
+        include: [{ model: User, as: 'sender', attributes: ['id', 'image'] }],
+      });
+      replyToMessage = found ? found.toJSON() : null;
+      if (replyToMessage && replyToMessage.sender) {
+        replyToMessage.avatar = replyToMessage.sender.image;
+      }
+    }
+    // Lấy lại message kèm sender
+    const msgWithSender = await Message.findByPk(message.id, {
+      include: [{ model: User, as: 'sender', attributes: ['id', 'image'] }],
+    });
+    const msgJson = msgWithSender ? msgWithSender.toJSON() : message.toJSON();
+    return { ...msgJson, avatar: msgJson.sender?.image, replyToMessage };
   }
 
   // Lấy lịch sử chat giữa 2 user (chỉ cho phép bạn bè)
@@ -291,7 +313,7 @@ export class UsersService {
     if (!(await this.areFriends(userId, friendId))) {
       throw new BadRequestException('You can only view chat with your friends');
     }
-    return Message.findAll({
+    const messages = await Message.findAll({
       where: {
         [Op.or]: [
           { sender_id: userId, receiver_id: friendId },
@@ -299,6 +321,11 @@ export class UsersService {
         ],
       },
       order: [['created_at', 'ASC']],
+      include: [{ model: User, as: 'sender', attributes: ['id', 'image'] }],
+    });
+    return messages.map((msg) => {
+      const m = msg.toJSON();
+      return { ...m, avatar: m.sender?.image };
     });
   }
 
