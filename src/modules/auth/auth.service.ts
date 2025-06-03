@@ -56,7 +56,7 @@ export class AuthService {
       refresh_token,
       expiry_date,
     );
-    console.log('check user login', user);
+    // console.log('check user login', user);
     const { password, ...userSafe } = user.get ? user.get() : user;
     return { user: userSafe, access_token, refresh_token };
   }

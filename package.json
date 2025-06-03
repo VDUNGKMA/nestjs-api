@@ -23,7 +23,8 @@
     "postinstall": "echo 'Note: Using legacy-peer-deps to handle version conflicts between NestJS packages'"
   },
   "dependencies": {
-    "@nestjs/bull": "^10.1.0",
+    "@nestjs/axios": "^4.0.0",
+    "@nestjs/bull": "^11.0.2",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.0",
@@ -41,7 +42,7 @@
     "async": "^3.2.5",
     "axios": "^1.9.0",
     "bcrypt": "^5.1.1",
-    "bull": "^4.15.1",
+    "bull": "^4.16.5",
     "cache-manager": "^5.4.0",
     "cache-manager-redis-store": "^3.0.1",
     "class-transformer": "^0.5.1",
@@ -69,6 +70,7 @@
     "sequelize": "^6.37.5",
     "sequelize-typescript": "^2.1.6",
     "socket.io": "^4.7.5",
+    "string-similarity": "^4.0.4",
     "uuid": "^10.0.0"
   },
   "devDependencies": {

@@ -28,7 +28,10 @@ export class GenreController {
   findAll() {
     return this.genreService.findAll();
   }
-
+  @Get('names')
+  async getGenreNames() {
+    return this.genreService.findAllNames();
+  }
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.genreService.findOne(+id);

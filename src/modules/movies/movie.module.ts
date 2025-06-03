@@ -8,6 +8,8 @@ import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 import { Genre } from 'src/models/genre.model';
 import { Screening } from 'src/models/screening.model';
 import { MovieRating } from '../../models/movie-rating.model';
+import { MovieComment } from '../../models/movie-comment.model';
+import { RecommendationModule } from '../recommendation/recommendation.module';
 @Module({
   imports: [
     SequelizeModule.forFeature([
@@ -16,7 +18,9 @@ import { MovieRating } from '../../models/movie-rating.model';
       Genre,
       Screening,
       MovieRating,
+      MovieComment,
     ]),
+    RecommendationModule,
   ],
   controllers: [MovieController],
   providers: [MoviesService, JwtAuthGuard],

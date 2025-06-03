@@ -25,10 +25,16 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { MovieRating } from '../../models/movie-rating.model';
+import { MovieComment } from '../../models/movie-comment.model';
+import { Sequelize } from 'sequelize-typescript';
+import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 
 @Controller('movies')
 export class MovieController {
-  constructor(private readonly movieService: MoviesService) {}
+  constructor(
+    private readonly movieService: MoviesService,
+    private readonly sequelize: Sequelize,
+  ) {}
 
   // Special endpoints first
   @Public()
@@ -207,5 +213,96 @@ export class MovieController {
   @Get(':movieId/ratings')
   async getRatings(@Param('movieId') movieId: number) {
     return this.movieService.getRatings(movieId);
+  }
+
+  // Tạo comment hoặc reply cho phim
+  @UseGuards(JwtAuthGuard)
+  @Post(':movieId/comments')
+  async createComment(
+    @Param('movieId') movieId: number,
+    @Body('content') content: string,
+    @Body('parent_id') parent_id: number,
+    @Req() req,
+  ) {
+    const userId = req.user.id || req.user.userId;
+    const data: any = {
+      movie_id: movieId,
+      user_id: userId,
+      content,
+    };
+    if (typeof parent_id === 'number' && !isNaN(parent_id)) {
+      data.parent_id = parent_id;
+    }
+    const comment = await MovieComment.create(data);
+    return comment;
+  }
+
+  // Lấy danh sách comment dạng cây cho phim
+  @Public()
+  @Get(':movieId/comments')
+  async getComments(@Param('movieId') movieId: number) {
+    // Lấy tất cả comment của phim
+    const comments = await MovieComment.findAll({
+      where: { movie_id: movieId },
+      order: [['created_at', 'ASC']],
+      include: [
+        { model: MovieComment, as: 'replies' },
+        { model: MovieComment, as: 'parent' },
+      ],
+    });
+    // Chuyển thành dạng cây
+    const map: { [key: number]: any } = {};
+    const roots: any[] = [];
+    comments.forEach((c) => {
+      map[c.id] = { ...c.toJSON(), replies: [] };
+    });
+    comments.forEach((c) => {
+      if (c.parent_id) {
+        map[c.parent_id]?.replies.push(map[c.id]);
+      } else {
+        roots.push(map[c.id]);
+      }
+    });
+    return roots;
+  }
+
+  // Xóa comment (và các reply con)
+  @UseGuards(JwtAuthGuard)
+  @Delete('comments/:commentId')
+  async deleteComment(@Param('commentId') commentId: number, @Req() req) {
+    const userId = req.user.id || req.user.userId;
+    const comment = await MovieComment.findByPk(commentId);
+    if (!comment) return { message: 'Comment not found' };
+    if (comment.user_id !== userId) return { message: 'Không có quyền xóa' };
+    // Xóa tất cả reply con (đệ quy nếu cần)
+    await this.deleteCommentRecursive(commentId);
+    return { message: 'Đã xóa comment và các reply con' };
+  }
+
+  // Hàm đệ quy xóa comment và reply con
+  private async deleteCommentRecursive(commentId: number) {
+    const replies = await MovieComment.findAll({
+      where: { parent_id: commentId },
+    });
+    for (const reply of replies) {
+      await this.deleteCommentRecursive(reply.id);
+    }
+    await MovieComment.destroy({ where: { id: commentId } });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('comments/:commentId')
+  async updateComment(
+    @Param('commentId') commentId: number,
+    @Body('content') content: string,
+    @Req() req,
+  ) {
+    const userId = req.user.id || req.user.userId;
+    const comment = await MovieComment.findByPk(commentId);
+    if (!comment) return { message: 'Comment not found' };
+    if (comment.user_id !== userId) return { message: 'Không có quyền sửa' };
+    comment.content = content;
+    await comment.save();
+    return comment;
   }
 }

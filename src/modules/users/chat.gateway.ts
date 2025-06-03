@@ -47,10 +47,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.log(
         `User ${userId} connected and joined room user:${userId}`,
       );
+      this.logger.log('Socket join room:', userId);
       // Gửi trạng thái online cho bạn bè
       const friends = await this.usersService.getFriends(userId);
       friends.forEach((friend) => {
         this.server.to(`user:${friend.id}`).emit('friend_online', { userId });
+        this.logger.log(
+          'Emit friend_online to:',
+          friend.id,
+          'for user:',
+          userId,
+        );
       });
     } catch (e) {
       client.disconnect();
@@ -64,6 +71,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const friends = await this.usersService.getFriends(userId);
       friends.forEach((friend) => {
         this.server.to(`user:${friend.id}`).emit('friend_offline', { userId });
+        this.logger.log(
+          'Emit friend_offline to:',
+          friend.id,
+          'for user:',
+          userId,
+        );
       });
     }
     this.logger.log(`Client disconnected: ${client.id}`);
@@ -102,6 +115,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data.receiverId,
       data.content,
       data.replyToMessageId,
+    );
+    this.logger.log(
+      'Emit private_message to:',
+      data.receiverId,
+      data.senderId,
+      message,
     );
     this.server.to(`user:${data.receiverId}`).emit('private_message', message);
     this.server.to(`user:${data.senderId}`).emit('private_message', message);
@@ -344,16 +363,37 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`user:${data.senderId}`).emit('image_message', message);
   }
 
+  @SubscribeMessage('call_request')
+  async handleCallRequest(
+    @MessageBody() data: { senderId: number; receiverId: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `[SOCKET] Nhận call_request từ ${data.senderId} tới ${data.receiverId}`,
+    );
+    this.server.to(`user:${data.receiverId}`).emit('call_request', data);
+    this.logger.log(
+      `[SOCKET] Đã emit call_request tới user:${data.receiverId}`,
+    );
+  }
+
   @SubscribeMessage('signaling')
   async handleSignaling(
     @MessageBody() data: { senderId: number; receiverId: number; signal: any },
     @ConnectedSocket() client: Socket,
   ) {
-    // Chuyển tiếp signaling data tới peer
+    this.logger.log(
+      `[SOCKET] Nhận signaling từ ${data.senderId} tới ${data.receiverId}:`,
+      data.signal?.type,
+    );
     this.server.to(`user:${data.receiverId}`).emit('signaling', {
       from: data.senderId,
       signal: data.signal,
     });
+    this.logger.log(
+      `[SOCKET] Đã emit signaling tới user:${data.receiverId} với type:`,
+      data.signal?.type,
+    );
   }
 
   @SubscribeMessage('file_message')
@@ -385,5 +425,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
     this.server.to(`user:${data.receiverId}`).emit('file_message', message);
     this.server.to(`user:${data.senderId}`).emit('file_message', message);
+  }
+
+  @SubscribeMessage('request_offer')
+  async handleRequestOffer(
+    @MessageBody() data: { from: number; to: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(
+      `[SOCKET] Nhận request_offer từ ${data.from} tới ${data.to}`,
+    );
+    this.server
+      .to(`user:${data.from}`)
+      .emit('request_offer', { from: data.to });
+    this.logger.log(`[SOCKET] Đã emit request_offer tới user:${data.from}`);
+  }
+
+  @SubscribeMessage('call_end')
+  async handleCallEnd(
+    @MessageBody() data: { from: number; to: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.logger.log(`[SOCKET] Nhận call_end từ ${data.from} tới ${data.to}`);
+    this.server.to(`user:${data.to}`).emit('call_end', { from: data.from });
+    this.logger.log(`[SOCKET] Relay call_end from ${data.from} to ${data.to}`);
   }
 }

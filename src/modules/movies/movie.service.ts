@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Sequelize } from 'sequelize-typescript';
 import { MovieRating } from '../../models/movie-rating.model';
+import { DataCollectionService } from '../recommendation/services/data-collection.service';
 
 @Injectable()
 export class MoviesService {
@@ -21,6 +22,7 @@ export class MoviesService {
     @InjectModel(Genre) private genreModel: typeof Genre,
     @InjectModel(Screening) private screeningModel: typeof Screening,
     private sequelize: Sequelize,
+    private readonly dataCollectionService: DataCollectionService,
   ) {}
 
   async createMovie(createMovieDto: CreateMovieDto): Promise<Movie> {
@@ -86,9 +88,9 @@ export class MoviesService {
     }
 
     // Log điều kiện where để debug nếu cần
-    console.log('today:', today);
-    console.log('tomorrow:', tomorrow);
-    console.log('where:', where);
+    // console.log('today:', today);
+    // console.log('tomorrow:', tomorrow);
+    // console.log('where:', where);
 
     return this.movieModel.findAll({
       where,
@@ -342,12 +344,12 @@ export class MoviesService {
 
   async updateMovieAverageRating(movieId: number) {
     const { average } = await this.getAverageRating(movieId);
-    console.log(
-      'Cập nhật rating trung bình:',
-      average,
-      'cho movieId:',
-      movieId,
-    );
+    // console.log(
+    //   'Cập nhật rating trung bình:',
+    //   average,
+    //   'cho movieId:',
+    //   movieId,
+    // );
     const [affectedRows] = await this.movieModel.update(
       { rating: average },
       { where: { id: movieId } },
@@ -400,6 +402,8 @@ export class MoviesService {
     await this.updateMovieAverageRating(movieId);
     // Cập nhật popularity vào Movie
     await this.updateMoviePopularity(movieId);
+    // Đồng bộ preferences tự động sau khi đánh giá
+    await this.dataCollectionService.collectRatingData();
     return { success: true, rating: movieRating };
   }
 

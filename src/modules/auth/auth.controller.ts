@@ -71,7 +71,7 @@ export class AuthController {
   @Get('profile-cutomer')
   getProfilebyCustomer(@Request() req) {
     const { password, ...userProfile } = req.user;
-    console.log("check user profile",req.user)
+    // console.log("check user profile",req.user)
     return userProfile
   }
   @Public()

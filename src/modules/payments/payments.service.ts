@@ -213,9 +213,9 @@ export class PaymentService {
         if (pgError?.code === '40001') {
           retryCount++;
           lastError = error;
-          console.log(
-            `Serialization error occurred, retrying (${retryCount}/${maxRetries})...`,
-          );
+          // console.log(
+          //   `Serialization error occurred, retrying (${retryCount}/${maxRetries})...`,
+          // );
           // Chờ một khoảng thời gian ngẫu nhiên trước khi thử lại để giảm xung đột
           await new Promise((resolve) =>
             setTimeout(resolve, 100 * Math.random() * retryCount),
@@ -398,9 +398,9 @@ export class PaymentService {
         if (pgError?.code === '40001') {
           retryCount++;
           lastError = error;
-          console.log(
-            `Serialization error occurred, retrying (${retryCount}/${maxRetries})...`,
-          );
+          // console.log(
+          //   `Serialization error occurred, retrying (${retryCount}/${maxRetries})...`,
+          // );
           // Chờ một khoảng thời gian ngẫu nhiên trước khi thử lại để giảm xung đột
           await new Promise((resolve) =>
             setTimeout(resolve, 100 * Math.random() * retryCount),
@@ -446,9 +446,9 @@ export class PaymentService {
         if (pgError?.code === '40001') {
           retryCount++;
           lastError = error;
-          console.log(
-            `Serialization error occurred, retrying (${retryCount}/${maxRetries})...`,
-          );
+          // console.log(
+          //   `Serialization error occurred, retrying (${retryCount}/${maxRetries})...`,
+          // );
           // Chờ một khoảng thời gian ngẫu nhiên trước khi thử lại để giảm xung đột
           await new Promise((resolve) =>
             setTimeout(resolve, 100 * Math.random() * retryCount),

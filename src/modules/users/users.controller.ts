@@ -27,6 +27,7 @@ import { UserProfileDto } from './dto/user-profile.dto';
 import { JwtAuthGuard } from '../auth/passport/jwt-auth.guard';
 import * as path from 'path';
 import { ChatGateway } from './chat.gateway';
+import { FriendConversation } from './friend-conversation.interface';
 
 @Controller('users')
 export class UsersController {
@@ -164,7 +165,7 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get('friends')
-  async getFriends(@Request() req) {
+  async getFriends(@Request() req): Promise<FriendConversation[]> {
     return this.usersService.getFriends(req.user.userId);
   }
 

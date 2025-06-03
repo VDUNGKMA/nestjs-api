@@ -19,8 +19,6 @@ export interface ScreeningAttributes {
   start_time: Date;
   end_time: Date;
   price: number;
-  // createdAt?: Date; // Tùy chọn, do Sequelize tự động thêm
-  // updatedAt?: Date; // Tùy chọn, do Sequelize tự động thêm
 }
 @Table({
   tableName: 'Screenings',

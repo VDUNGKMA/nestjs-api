@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { Op } from 'sequelize';
 import { Friendship } from '../../models/friendship.model';
 import { Message } from '../../models/message.model';
+import { FriendConversation } from './friend-conversation.interface';
 
 @Injectable()
 export class UsersService {
@@ -169,7 +170,7 @@ export class UsersService {
     };
   }
   async searchUsers(query: string, myId: number) {
-    console.log('SEARCH QUERY:', query, 'MY ID:', myId);
+    // console.log('SEARCH QUERY:', query, 'MY ID:', myId);
     const result = await this.userModel.findAll({
       where: {
         [Op.and]: [
@@ -185,7 +186,7 @@ export class UsersService {
       },
       attributes: ['id', 'name', 'phone', 'image'],
     });
-    console.log('SEARCH RESULT:', result);
+    // console.log('SEARCH RESULT:', result);
     return result;
   }
 
@@ -235,7 +236,7 @@ export class UsersService {
   }
 
   // Lấy danh sách bạn bè
-  async getFriends(userId: number) {
+  async getFriends(userId: number): Promise<FriendConversation[]> {
     const friends = await Friendship.findAll({
       where: { user_id: userId, status: 'accepted' },
       include: [
@@ -246,7 +247,27 @@ export class UsersService {
         },
       ],
     });
-    return friends.map((f) => f.friend);
+    // Lấy lastMessage cho từng bạn
+    const result = await Promise.all(
+      friends.map(async (f) => {
+        const friend = f.friend;
+        // Lấy tin nhắn cuối cùng giữa user và bạn này
+        const lastMsg = await Message.findOne({
+          where: {
+            [Op.or]: [
+              { sender_id: userId, receiver_id: friend.id },
+              { sender_id: friend.id, receiver_id: userId },
+            ],
+          },
+          order: [['created_at', 'DESC']],
+        });
+        return {
+          ...(friend.toJSON() as Omit<FriendConversation, 'lastMessage'>),
+          lastMessage: lastMsg ? lastMsg.toJSON() : null,
+        };
+      }),
+    );
+    return result;
   }
 
   // Lấy danh sách lời mời kết bạn đang chờ xử lý
