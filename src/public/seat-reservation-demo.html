@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cinema Seat Reservation System - Stress Test</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding-top: 20px;
+    }
+    .seat {
+      width: 40px;
+      height: 40px;
+      margin: 5px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .seat-available {
+      background-color: #2ecc71;
+      color: white;
+    }
+    .seat-reserved {
+      background-color: #f39c12;
+      color: white;
+    }
+    .seat-selected {
+      background-color: #3498db;
+      color: white;
+      transform: scale(1.1);
+    }
+    .seat-unavailable {
+      background-color: #e74c3c;
+      color: white;
+      cursor: not-allowed;
+    }
+    .seat-row {
+      margin-bottom: 5px;
+      text-align: center;
+    }
+    .screen {
+      height: 20px;
+      background-color: #95a5a6;
+      margin: 0 auto 50px auto;
+      text-align: center;
+      color: white;
+      font-size: 14px;
+      border-top-left-radius: 100%;
+      border-top-right-radius: 100%;
+      transform: rotateX(-30deg);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    }
+    .queue-position {
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    .stats-card {
+      transition: all 0.3s ease;
+    }
+    .stats-update {
+      background-color: #ffffcc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mb-4 text-center">Cinema Seat Reservation System</h1>
+    <h3 class="mb-4 text-center">High Performance Stress Test</h3>
+
+    <div class="row mb-4">
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-header">Screening Information</div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Screening ID:</label>
+              <input type="number" id="screening-id" class="form-control" value="1">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">User ID:</label>
+              <input type="number" id="user-id" class="form-control" value="1">
+            </div>
+            <button id="connect-btn" class="btn btn-primary mb-2 w-100">Connect</button>
+            <button id="disconnect-btn" class="btn btn-outline-danger mb-2 w-100" disabled>Disconnect</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <div class="card">
+          <div class="card-header">Queue and Performance Stats</div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-6">
+                <div id="queue-waiting" class="card mb-2 stats-card">
+                  <div class="card-body py-2 text-center">
+                    <h5 class="mb-0">Waiting: <span>0</span></h5>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div id="queue-active" class="card mb-2 stats-card">
+                  <div class="card-body py-2 text-center">
+                    <h5 class="mb-0">Active: <span>0</span></h5>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div id="queue-delayed" class="card mb-2 stats-card">
+                  <div class="card-body py-2 text-center">
+                    <h5 class="mb-0">Delayed: <span>0</span></h5>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div id="queue-failed" class="card mb-2 stats-card">
+                  <div class="card-body py-2 text-center">
+                    <h5 class="mb-0">Failed: <span>0</span></h5>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="user-position" class="alert alert-info mt-3 d-none">
+              <span class="queue-position">Your queue position: <strong id="position-number">-</strong></span>
+              <div>Estimated wait: <span id="estimated-wait">-</span> seconds</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">Actions</div>
+          <div class="card-body">
+            <button id="reserve-btn" class="btn btn-success mb-2 w-100" disabled>Reserve Selected Seats</button>
+            <button id="release-btn" class="btn btn-warning mb-2 w-100" disabled>Release My Reservations</button>
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="require-all" checked>
+              <label class="form-check-label" for="require-all">Require all seats (cancel if any unavailable)</label>
+            </div>
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="suggest-alternatives" checked>
+              <label class="form-check-label" for="suggest-alternatives">Suggest alternatives if unavailable</label>
+            </div>
+            <hr>
+            <div class="d-grid">
+              <button id="simulate-load-btn" class="btn btn-danger mb-2" disabled>
+                Simulate High Load (100 Reservations)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Theater Seat Map</span>
+            <button id="refresh-seats-btn" class="btn btn-sm btn-outline-primary" disabled>Refresh Seats</button>
+          </div>
+          <div class="card-body">
+            <div class="screen mb-4">SCREEN</div>
+            <div id="seat-container" class="text-center"></div>
+            
+            <div class="mt-4">
+              <div class="d-flex justify-content-center">
+                <div class="d-flex align-items-center me-3">
+                  <div class="seat seat-available me-2" style="width:20px;height:20px;cursor:default"></div>
+                  <span>Available</span>
+                </div>
+                <div class="d-flex align-items-center me-3">
+                  <div class="seat seat-selected me-2" style="width:20px;height:20px;cursor:default"></div>
+                  <span>Selected</span>
+                </div>
+                <div class="d-flex align-items-center me-3">
+                  <div class="seat seat-reserved me-2" style="width:20px;height:20px;cursor:default"></div>
+                  <span>Reserved by you</span>
+                </div>
+                <div class="d-flex align-items-center">
+                  <div class="seat seat-unavailable me-2" style="width:20px;height:20px;cursor:default"></div>
+                  <span>Unavailable</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-4">
+      <div class="col-md-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between">
+            <span>Event Log</span>
+            <button id="clear-log-btn" class="btn btn-sm btn-outline-secondary">Clear</button>
+          </div>
+          <div class="card-body">
+            <pre id="event-log" style="max-height: 200px; overflow-y: auto; font-size: 12px;"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // UI Elements
+      const screeningIdInput = document.getElementById('screening-id');
+      const userIdInput = document.getElementById('user-id');
+      const connectBtn = document.getElementById('connect-btn');
+      const disconnectBtn = document.getElementById('disconnect-btn');
+      const reserveBtn = document.getElementById('reserve-btn');
+      const releaseBtn = document.getElementById('release-btn');
+      const refreshSeatsBtn = document.getElementById('refresh-seats-btn');
+      const requireAllCheckbox = document.getElementById('require-all');
+      const suggestAlternativesCheckbox = document.getElementById('suggest-alternatives');
+      const seatContainer = document.getElementById('seat-container');
+      const eventLog = document.getElementById('event-log');
+      const clearLogBtn = document.getElementById('clear-log-btn');
+      const simulateLoadBtn = document.getElementById('simulate-load-btn');
+      const userPositionDiv = document.getElementById('user-position');
+      const positionNumberSpan = document.getElementById('position-number');
+      const estimatedWaitSpan = document.getElementById('estimated-wait');
+      
+      // Stats elements
+      const queueWaiting = document.querySelector('#queue-waiting span');
+      const queueActive = document.querySelector('#queue-active span');
+      const queueDelayed = document.querySelector('#queue-delayed span');
+      const queueFailed = document.querySelector('#queue-failed span');
+
+      // State
+      let socket = null;
+      let selectedSeats = [];
+      let myReservations = [];
+      let allSeats = [];
+      let connected = false;
+      let statsUpdateInterval;
+
+      // Connect to WebSocket
+      connectBtn.addEventListener('click', function() {
+        const screeningId = parseInt(screeningIdInput.value);
+        const userId = parseInt(userIdInput.value);
+        
+        if (isNaN(screeningId) || isNaN(userId)) {
+          logEvent('Error: Please enter valid Screening ID and User ID');
+          return;
+        }
+
+        // Connect to socket.io server with the 'seats' namespace
+        socket = io('http://localhost:3000/seats', {
+          query: {
+            userId
+          }
+        });
+
+        // Socket events
+        socket.on('connect', () => {
+          logEvent(`Connected to WebSocket server. Socket ID: ${socket.id}`);
+          socket.emit('join_screening', screeningId);
+          connected = true;
+          updateUI();
+          loadSeats();
+          startStatsUpdates();
+        });
+
+        socket.on('disconnect', () => {
+          logEvent('Disconnected from WebSocket server');
+          connected = false;
+          updateUI();
+          clearInterval(statsUpdateInterval);
+        });
+
+        socket.on('connect_error', (error) => {
+          logEvent(`Connection error: ${error.message}`);
+          connected = false;
+          updateUI();
+        });
+
+        socket.on('seat_status_update', (data) => {
+          logEvent(`Received seat status update for screening #${data.screening_id} with ${data.available_seats.length} available seats`);
+          updateSeatMap(data.available_seats);
+        });
+
+        socket.on('seat_reserved', (data) => {
+          logEvent(`Seats ${data.seat_ids.join(', ')} reserved by user ${data.reserved_by}`);
+          highlightUpdatedSeats(data.seat_ids);
+        });
+
+        socket.on('seat_released', (data) => {
+          logEvent(`Seats ${data.seat_ids.join(', ')} were released`);
+          highlightUpdatedSeats(data.seat_ids);
+        });
+
+        socket.on('queue_update', (data) => {
+          logEvent(`Queue update: position ${data.position}, wait time ${data.estimated_wait_seconds} seconds`);
+          userPositionDiv.classList.remove('d-none');
+          positionNumberSpan.textContent = data.position;
+          estimatedWaitSpan.textContent = data.estimated_wait_seconds;
+          
+          if (data.position === 0) {
+            setTimeout(() => {
+              userPositionDiv.classList.add('d-none');
+            }, 3000);
+          }
+        });
+      });
+
+      // Disconnect from WebSocket
+      disconnectBtn.addEventListener('click', function() {
+        if (socket) {
+          const screeningId = parseInt(screeningIdInput.value);
+          socket.emit('leave_screening', screeningId);
+          socket.disconnect();
+          socket = null;
+          connected = false;
+          updateUI();
+          clearInterval(statsUpdateInterval);
+        }
+      });
+
+      // Reserve selected seats
+      reserveBtn.addEventListener('click', function() {
+        if (!connected || selectedSeats.length === 0) return;
+        
+        const screeningId = parseInt(screeningIdInput.value);
+        const userId = parseInt(userIdInput.value);
+        const requireAll = requireAllCheckbox.checked;
+        const suggestAlternatives = suggestAlternativesCheckbox.checked;
+        
+        reserveSeats(screeningId, userId, selectedSeats, requireAll, suggestAlternatives);
+      });
+
+      // Release reserved seats
+      releaseBtn.addEventListener('click', function() {
+        if (!connected) return;
+        
+        const screeningId = parseInt(screeningIdInput.value);
+        const userId = parseInt(userIdInput.value);
+        
+        releaseUserSeats(screeningId, userId);
+      });
+
+      // Refresh seats button
+      refreshSeatsBtn.addEventListener('click', function() {
+        if (!connected) return;
+        loadSeats();
+      });
+
+      // Clear log button
+      clearLogBtn.addEventListener('click', function() {
+        eventLog.textContent = '';
+      });
+
+      // Simulate high load
+      simulateLoadBtn.addEventListener('click', function() {
+        if (!connected) return;
+        
+        const screeningId = parseInt(screeningIdInput.value);
+        const confirmSim = confirm('This will simulate 100 concurrent seat reservation requests. Continue?');
+        
+        if (confirmSim) {
+          simulateHighLoad(screeningId, 100);
+        }
+      });
+
+      // API Functions
+      async function loadSeats() {
+        try {
+          const screeningId = parseInt(screeningIdInput.value);
+          logEvent(`Loading seats for screening #${screeningId}...`);
+          
+          const response = await fetch(`/api/seat-reservations/available-seats/${screeningId}`);
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+          
+          const data = await response.json();
+          allSeats = data;
+          
+          // Generate a theater layout
+          generateSeatMap(data);
+          logEvent(`Loaded ${data.length} available seats for screening #${screeningId}`);
+          
+          // Also load user's current reservations
+          loadUserReservations();
+        } catch (error) {
+          logEvent(`Error loading seats: ${error.message}`);
+        }
+      }
+      
+      async function loadUserReservations() {
+        try {
+          const screeningId = parseInt(screeningIdInput.value);
+          const userId = parseInt(userIdInput.value);
+          
+          const response = await fetch(`/api/seat-reservations/user/${userId}/screening/${screeningId}`);
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+          
+          const data = await response.json();
+          myReservations = data.map(r => r.seat_id);
+          
+          logEvent(`Loaded ${myReservations.length} existing reservations for user #${userId}`);
+          updateSeatMapWithReservations();
+        } catch (error) {
+          logEvent(`Error loading reservations: ${error.message}`);
+        }
+      }
+      
+      async function reserveSeats(screeningId, userId, seatIds, requireAll, suggestAlternatives) {
+        try {
+          logEvent(`Reserving seats ${seatIds.join(', ')} for user #${userId}...`);
+          reserveBtn.disabled = true;
+          
+          const response = await fetch('/api/seat-reservations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              screening_id: screeningId,
+              seat_ids: seatIds,
+              reservation_type: 'temporary',
+              require_all: requireAll,
+              suggest_alternatives: suggestAlternatives
+            }),
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            logEvent(`Successfully reserved ${result.reservations.length} seats`);
+            selectedSeats = [];
+            loadUserReservations();
+          } else {
+            logEvent(`Reservation failed: ${result.error}`);
+            
+            if (result.alternativeSuggestions) {
+              const altSeats = result.alternativeSuggestions.seats.map(s => `${s.seat_row}${s.seat_number}`).join(', ');
+              logEvent(`Suggested alternative seats: ${altSeats}`);
+            }
+          }
+        } catch (error) {
+          logEvent(`Error reserving seats: ${error.message}`);
+        } finally {
+          reserveBtn.disabled = false;
+        }
+      }
+      
+      async function releaseUserSeats(screeningId, userId) {
+        try {
+          logEvent(`Releasing all seats for user #${userId}...`);
+          releaseBtn.disabled = true;
+          
+          const response = await fetch(`/api/seat-reservations/user/${userId}/screening/${screeningId}`, {
+            method: 'DELETE',
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            logEvent('Successfully released all seats');
+            myReservations = [];
+            updateSeatMapWithReservations();
+          } else {
+            logEvent(`Release failed: ${result.error || 'Unknown error'}`);
+          }
+        } catch (error) {
+          logEvent(`Error releasing seats: ${error.message}`);
+        } finally {
+          releaseBtn.disabled = false;
+        }
+      }
+      
+      async function getQueueStats() {
+        try {
+          const screeningId = parseInt(screeningIdInput.value);
+          const response = await fetch(`/api/seat-reservations/queue-stats/${screeningId}`);
+          if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+          
+          const data = await response.json();
+          
+          // Update UI with queue stats
+          updateQueueStats(data);
+        } catch (error) {
+          console.error(`Error getting queue stats: ${error.message}`);
+        }
+      }
+      
+      // Simulate high load by making many concurrent requests
+      async function simulateHighLoad(screeningId, count) {
+        logEvent(`Simulating ${count} concurrent seat reservation requests...`);
+        simulateLoadBtn.disabled = true;
+        
+        const randomUsers = Array.from({ length: count }, (_, i) => 1000 + i);
+        const allRows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        
+        // Find all available seat IDs
+        const availableSeats = [...document.querySelectorAll('.seat-available')].map(el => parseInt(el.dataset.seatId));
+        
+        if (availableSeats.length < count) {
+          logEvent(`Not enough available seats (${availableSeats.length}) for simulation (${count})`);
+          simulateLoadBtn.disabled = false;
+          return;
+        }
+        
+        // Randomize the seat selection (1 or 2 seats per user)
+        const promises = [];
+        let usedSeatIds = new Set();
+        
+        for (let i = 0; i < randomUsers.length; i++) {
+          const userId = randomUsers[i];
+          const seatCount = Math.random() > 0.5 ? 2 : 1;
+          const userSeatIds = [];
+          
+          for (let j = 0; j < seatCount; j++) {
+            // Find an unused seat
+            let seatId;
+            do {
+              const randomIndex = Math.floor(Math.random() * availableSeats.length);
+              seatId = availableSeats[randomIndex];
+            } while (usedSeatIds.has(seatId));
+            
+            userSeatIds.push(seatId);
+            usedSeatIds.add(seatId);
+          }
+          
+          promises.push(
+            fetch('/api/seat-reservations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                screening_id: screeningId,
+                seat_ids: userSeatIds,
+                reservation_type: 'temporary',
+                require_all: true,
+                suggest_alternatives: false
+              }),
+            }).then(resp => resp.json())
+          );
+        }
+        
+        // Execute all requests concurrently
+        try {
+          const results = await Promise.allSettled(promises);
+          
+          const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+          const failed = results.length - successful;
+          
+          logEvent(`Simulation complete: ${successful} successful, ${failed} failed reservations`);
+        } catch (error) {
+          logEvent(`Simulation error: ${error.message}`);
+        } finally {
+          simulateLoadBtn.disabled = false;
+          // Refresh seat map after simulation
+          setTimeout(loadSeats, 1000);
+        }
+      }
+
+      // UI Functions
+      function generateSeatMap(seats) {
+        // Find all unique rows and columns
+        const rows = [...new Set(seats.map(seat => seat.seat_row))].sort();
+        const seatsByRow = {};
+        
+        rows.forEach(row => {
+          seatsByRow[row] = seats.filter(seat => seat.seat_row === row)
+                                .sort((a, b) => a.seat_number - b.seat_number);
+        });
+        
+        // Generate seat map
+        seatContainer.innerHTML = '';
+        
+        rows.forEach(row => {
+          const rowDiv = document.createElement('div');
+          rowDiv.className = 'seat-row';
+          
+          // Row label
+          const rowLabel = document.createElement('div');
+          rowLabel.className = 'seat-row-label d-inline-block me-2';
+          rowLabel.style.width = '20px';
+          rowLabel.textContent = row;
+          rowDiv.appendChild(rowLabel);
+          
+          // Generate seats for the row
+          const maxSeatNumber = Math.max(...seatsByRow[row].map(seat => seat.seat_number));
+          
+          for (let i = 1; i <= maxSeatNumber; i++) {
+            const seat = seatsByRow[row].find(s => s.seat_number === i);
+            
+            if (seat) {
+              const seatDiv = document.createElement('div');
+              seatDiv.className = 'seat seat-available';
+              seatDiv.dataset.seatId = seat.id;
+              seatDiv.dataset.row = seat.seat_row;
+              seatDiv.dataset.number = seat.seat_number;
+              seatDiv.dataset.type = seat.seat_type;
+              seatDiv.textContent = `${seat.seat_row}${seat.seat_number}`;
+              
+              seatDiv.addEventListener('click', () => toggleSeatSelection(seat.id, seatDiv));
+              
+              rowDiv.appendChild(seatDiv);
+            } else {
+              // Empty space where there's no seat
+              const spacerDiv = document.createElement('div');
+              spacerDiv.className = 'seat';
+              spacerDiv.style.visibility = 'hidden';
+              rowDiv.appendChild(spacerDiv);
+            }
+          }
+          
+          seatContainer.appendChild(rowDiv);
+        });
+        
+        updateSeatMapWithReservations();
+      }
+      
+      function updateSeatMapWithReservations() {
+        // Reset all seats to available first
+        document.querySelectorAll('.seat').forEach(seatDiv => {
+          if (seatDiv.dataset.seatId) {
+            seatDiv.className = 'seat seat-available';
+          }
+        });
+        
+        // Mark my reservations
+        myReservations.forEach(seatId => {
+          const seatDiv = document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+          if (seatDiv) {
+            seatDiv.className = 'seat seat-reserved';
+          }
+        });
+        
+        // Mark selected seats
+        selectedSeats.forEach(seatId => {
+          const seatDiv = document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+          if (seatDiv && !myReservations.includes(seatId)) {
+            seatDiv.className = 'seat seat-selected';
+          }
+        });
+        
+        updateUI();
+      }
+      
+      function updateSeatMap(availableSeats) {
+        // Mark all seats as unavailable first
+        document.querySelectorAll('.seat').forEach(seatDiv => {
+          if (seatDiv.dataset.seatId) {
+            seatDiv.className = 'seat seat-unavailable';
+          }
+        });
+        
+        // Mark available seats
+        const availableSeatIds = availableSeats.map(seat => seat.id);
+        
+        availableSeatIds.forEach(seatId => {
+          const seatDiv = document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+          if (seatDiv) {
+            seatDiv.className = 'seat seat-available';
+          }
+        });
+        
+        // Re-mark my reservations and selected seats
+        updateSeatMapWithReservations();
+      }
+      
+      function highlightUpdatedSeats(seatIds) {
+        seatIds.forEach(seatId => {
+          const seatDiv = document.querySelector(`.seat[data-seat-id="${seatId}"]`);
+          if (seatDiv) {
+            seatDiv.classList.add('highlight');
+            setTimeout(() => {
+              seatDiv.classList.remove('highlight');
+            }, 2000);
+          }
+        });
+      }
+      
+      function toggleSeatSelection(seatId, seatDiv) {
+        if (seatDiv.classList.contains('seat-unavailable') || 
+            seatDiv.classList.contains('seat-reserved')) {
+          return; // Can't select unavailable or already reserved seats
+        }
+        
+        if (selectedSeats.includes(seatId)) {
+          // Unselect
+          selectedSeats = selectedSeats.filter(id => id !== seatId);
+          seatDiv.classList.remove('seat-selected');
+          seatDiv.classList.add('seat-available');
+        } else {
+          // Select
+          selectedSeats.push(seatId);
+          seatDiv.classList.remove('seat-available');
+          seatDiv.classList.add('seat-selected');
+        }
+        
+        updateUI();
+      }
+      
+      function updateQueueStats(data) {
+        const highlight = (element, newValue, oldValue) => {
+          if (oldValue !== undefined && newValue !== oldValue) {
+            element.parentElement.parentElement.classList.add('stats-update');
+            setTimeout(() => {
+              element.parentElement.parentElement.classList.remove('stats-update');
+            }, 1000);
+          }
+          element.textContent = newValue;
+        };
+        
+        highlight(queueWaiting, data.waiting, queueWaiting.textContent);
+        highlight(queueActive, data.active, queueActive.textContent);
+        highlight(queueDelayed, data.delayed, queueDelayed.textContent);
+        highlight(queueFailed, data.failed, queueFailed.textContent);
+      }
+      
+      function startStatsUpdates() {
+        // Update stats immediately
+        getQueueStats();
+        
+        // Then update every 2 seconds
+        statsUpdateInterval = setInterval(getQueueStats, 2000);
+      }
+      
+      function updateUI() {
+        const isConnected = connected && socket;
+        
+        connectBtn.disabled = isConnected;
+        disconnectBtn.disabled = !isConnected;
+        refreshSeatsBtn.disabled = !isConnected;
+        reserveBtn.disabled = !isConnected || selectedSeats.length === 0;
+        releaseBtn.disabled = !isConnected || myReservations.length === 0;
+        simulateLoadBtn.disabled = !isConnected;
+        
+        userIdInput.disabled = isConnected;
+        screeningIdInput.disabled = isConnected;
+      }
+      
+      function logEvent(message) {
+        const now = new Date();
+        const timestamp = now.toLocaleTimeString('en-US', { 
+          hour12: false, 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit',
+          fractionalSecondDigits: 3
+        });
+        
+        const logEntry = `[${timestamp}] ${message}\n`;
+        eventLog.textContent = logEntry + eventLog.textContent;
+      }
+    });
+  </script>
+</body>
+</html> 
