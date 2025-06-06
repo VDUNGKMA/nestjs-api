@@ -15,6 +15,6 @@ import { FcmService } from './fcm.service';
   imports: [SequelizeModule.forFeature([User, Friendship, Message])],
   controllers: [UsersController, AdminController],
   providers: [UsersService, JwtAuthGuard, ChatGateway, FcmService],
-  exports: [UsersService], // Xuất ra để AuthModule có thể sử dụng
+  exports: [UsersService, ChatGateway, FcmService], // Xuất ra để AuthModule có thể sử dụng
 })
 export class UsersModule {}

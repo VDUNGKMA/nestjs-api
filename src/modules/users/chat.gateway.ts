@@ -41,7 +41,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         secret: process.env.JWT_SECRET,
       });
       // Tự động lấy đúng userId từ payload
-      const userId = payload.userId || payload.sub || payload.id;
+      let userId = payload.userId || payload.sub || payload.id;
+      // Ép kiểu userId sang number nếu là chuỗi số
+      if (typeof userId === 'string' && /^\d+$/.test(userId)) {
+        userId = Number(userId);
+      }
       client.data.userId = userId;
       client.join(`user:${userId}`);
       this.logger.log(
@@ -87,8 +91,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { userId: number },
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`user:${data.userId}`);
-    this.logger.log(`User ${data.userId} joined room user:${data.userId}`);
+    // Ép kiểu userId sang number nếu là chuỗi số
+    let userId = data.userId;
+    if (typeof userId === 'string' && /^\d+$/.test(userId)) {
+      userId = Number(userId);
+    }
+    client.join(`user:${userId}`);
+    this.logger.log(`User ${userId} joined room user:${userId}`);
   }
 
   @SubscribeMessage('private_message')
@@ -449,5 +458,35 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`[SOCKET] Nhận call_end từ ${data.from} tới ${data.to}`);
     this.server.to(`user:${data.to}`).emit('call_end', { from: data.from });
     this.logger.log(`[SOCKET] Relay call_end from ${data.from} to ${data.to}`);
+  }
+
+  async sendScreeningInviteToUser(
+    senderId: number,
+    receiverId: number,
+    screeningId: number,
+    message: string,
+  ) {
+    // Lưu message vào DB
+    const inviteMsg = await this.usersService.sendScreeningInvite(
+      senderId,
+      receiverId,
+      screeningId,
+      message,
+    );
+    // Emit event tới receiver
+    this.server.to(`user:${receiverId}`).emit('invite_screening', {
+      senderId,
+      screeningId,
+      message,
+      inviteMsg,
+    });
+    // Optionally, emit tới sender để xác nhận
+    this.server.to(`user:${senderId}`).emit('invite_screening_sent', {
+      receiverId,
+      screeningId,
+      message,
+      inviteMsg,
+    });
+    return inviteMsg;
   }
 }

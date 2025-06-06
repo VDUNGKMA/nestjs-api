@@ -14,6 +14,7 @@ import { ContextAwareService } from './services/context-aware.service';
 import { DataCollectionService } from './services/data-collection.service';
 import { ModelTrainingService } from './services/model-training.service';
 import { ScreeningRecommendationService } from './services/screening-recommendation.service';
+import { UsersService } from '../users/users.service';
 
 // Models
 import { BookingRecommendation } from '../../models/booking-recommendation.entity';
@@ -30,9 +31,13 @@ import { Genre } from '../../models/genre.model';
 // Processors
 import { RecommendationProcessor } from './processors/recommendation.processor';
 import { TheaterRoom } from 'src/models/theater-room.model';
+import { Message } from 'src/models/message.model';
+import { UsersModule } from '../users/users.module';
+import { ChatGateway } from '../users/chat.gateway';
 
 @Module({
   imports: [
+    UsersModule,
     SequelizeModule.forFeature([
       BookingRecommendation,
       UserPreference,
@@ -45,6 +50,7 @@ import { TheaterRoom } from 'src/models/theater-room.model';
       Theater,
       Genre,
       TheaterRoom,
+      Message,
     ]),
     BullModule.registerQueue({
       name: 'recommendation',
@@ -61,6 +67,7 @@ import { TheaterRoom } from 'src/models/theater-room.model';
     ModelTrainingService,
     RecommendationProcessor,
     ScreeningRecommendationService,
+    UsersService,
   ],
   exports: [
     RecommendationService,

@@ -41,6 +41,27 @@ export class Message extends Model<Message> {
   })
   replyToMessageId: number;
 
+  @Column({ type: DataType.STRING, allowNull: true })
+  type: string;
+
+  @Column({ type: DataType.INTEGER, allowNull: true })
+  screening_id: number;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  movie_title: string;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  movie_poster: string;
+
+  @Column({ type: DataType.DATE, allowNull: true })
+  screening_time: Date;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  room_name: string;
+
+  @Column({ type: DataType.STRING, allowNull: true })
+  theater_name: string;
+
   @BelongsTo(() => User, 'sender_id')
   sender: User;
 

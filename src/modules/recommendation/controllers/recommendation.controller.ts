@@ -21,6 +21,7 @@ import { ContentBasedService } from '../services/content-based.service';
 import { ModelTrainingService } from '../services/model-training.service';
 import { Public } from 'src/decorators/public-route.decorator';
 import { ScreeningRecommendationService } from '../services/screening-recommendation.service';
+import { ChatGateway } from 'src/modules/users/chat.gateway';
 
 @ApiTags('recommendations')
 @Controller('recommendations')
@@ -30,6 +31,7 @@ export class RecommendationController {
     private readonly contentBasedService: ContentBasedService,
     private readonly modelTrainingService: ModelTrainingService,
     private readonly screeningRecommendationService: ScreeningRecommendationService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   @Get('personal')
@@ -209,7 +211,7 @@ export class RecommendationController {
         userLocation:
           lat && lng ? { lat: Number(lat), lng: Number(lng) } : undefined,
         limit: 3, // số suất chiếu mỗi phim
-        userId
+        userId,
       });
 
     // 3. Gộp kết quả và chỉ trả về phim có suất chiếu sắp tới
@@ -220,5 +222,56 @@ export class RecommendationController {
           screenings.find((s) => s.movie_id === rec.movie_id)?.screenings || [],
       }))
       .filter((rec) => rec.screenings.length > 0);
+  }
+
+  @Get('group-advanced')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Gợi ý phim/suất chiếu nhóm nâng cao' })
+  @ApiResponse({
+    status: 200,
+    description: 'Trả về danh sách suất chiếu/phim phù hợp nhóm bạn bè',
+  })
+  async getGroupAdvancedRecommendations(@Request() req) {
+    const userId = req.user.userId;
+    return this.recommendationService.getGroupAdvancedRecommendations(userId);
+  }
+
+  @ApiOperation({
+    summary:
+      'Gửi lời mời đặt vé qua chat cho nhiều bạn bè (tự động lưu thông tin phim, suất chiếu, phòng chiếu vào message)',
+  })
+  @ApiResponse({ status: 201, description: 'Đã gửi lời mời đặt vé qua chat' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('invite')
+  async inviteFriendsToScreening(
+    @Request() req,
+    @Body()
+    body: { receiverIds: number[]; screeningId: number; message: string },
+  ) {
+    const senderId = req.user.userId;
+    const { receiverIds, screeningId, message } = body;
+    // Gửi invite cho từng bạn bè
+    const results = await Promise.all(
+      receiverIds.map((receiverId) =>
+        this.chatGateway.sendScreeningInviteToUser(
+          senderId,
+          receiverId,
+          screeningId,
+          message,
+        ),
+      ),
+    );
+    return results;
+  }
+
+  @Get('invite-history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy lịch sử gửi/nhận lời mời đặt vé' })
+  async getInviteHistory(@Request() req) {
+    const userId = req.user.userId;
+    return this.recommendationService.getInviteHistory(userId);
   }
 }

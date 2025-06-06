@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { User } from '../../models/user.model';
@@ -13,12 +14,14 @@ import { Op } from 'sequelize';
 import { Friendship } from '../../models/friendship.model';
 import { Message } from '../../models/message.model';
 import { FriendConversation } from './friend-conversation.interface';
+import { Sequelize } from 'sequelize-typescript';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User) private userModel: typeof User,
     @InjectModel(Message) private messageModel: typeof Message,
+    @Inject(Sequelize) private sequelize: Sequelize,
   ) {}
 
   IsEmailExist = async (email: string) => {
@@ -389,6 +392,67 @@ export class UsersService {
       content,
       fileUrl,
       fileName,
+    } as any);
+  }
+
+  async sendScreeningInvite(
+    senderId: number,
+    receiverId: number,
+    screeningId: number,
+    message: string,
+  ) {
+    // Lấy thông tin suất chiếu, phim, phòng chiếu
+    const screening = await this.sequelize.models.Screening.findByPk(
+      screeningId,
+      {
+        include: [
+          { model: this.sequelize.models.Movie, as: 'movie' },
+          {
+            model: this.sequelize.models.TheaterRoom,
+            as: 'theaterRoom',
+            include: [{ model: this.sequelize.models.Theater, as: 'theater' }],
+          },
+        ],
+      },
+    );
+    const screeningObj = screening?.get
+      ? screening.get({ plain: true })
+      : screening;
+    let movieTitle = null,
+      moviePoster = null,
+      screeningTime = null,
+      roomName = null,
+      theaterName = null;
+    if (screeningObj) {
+      movieTitle = screeningObj.movie?.title || null;
+      moviePoster = screeningObj.movie?.poster_url || null;
+      screeningTime = screeningObj.start_time || null;
+      roomName = screeningObj.theaterRoom?.room_name || null;
+      theaterName = screeningObj.theaterRoom?.theater?.name || null;
+    }
+    console.log('[Invite] Sending invite:', {
+      senderId,
+      receiverId,
+      screeningId,
+      message,
+      movieTitle,
+      moviePoster,
+      screeningTime,
+      roomName,
+      theaterName,
+    });
+    // Tạo message loại 'invite'
+    return await this.messageModel.create({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content: message,
+      type: 'invite',
+      screening_id: screeningId,
+      movie_title: movieTitle,
+      movie_poster: moviePoster,
+      screening_time: screeningTime,
+      room_name: roomName,
+      theater_name: theaterName,
     } as any);
   }
 }

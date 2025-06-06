@@ -9,6 +9,7 @@ import { ContentBasedService } from './content-based.service';
 import { CollaborativeFilteringService } from './collaborative-filtering.service';
 import { ContextAwareService } from './context-aware.service';
 import { DataCollectionService } from './data-collection.service';
+import { UsersService } from '../../users/users.service';
 
 // Models
 import { BookingRecommendation } from '../../../models/booking-recommendation.entity';
@@ -41,6 +42,7 @@ export class RecommendationService {
     private readonly contextAwareService: ContextAwareService,
     private readonly dataCollectionService: DataCollectionService,
     private readonly sequelize: Sequelize,
+    private readonly usersService: UsersService,
   ) {}
 
   /**
@@ -483,5 +485,160 @@ export class RecommendationService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Lấy top thể loại phim mà bạn bè thích nhất
+   */
+  async getPopularGenresOfFriends(friendIds: number[]): Promise<number[]> {
+    if (!friendIds.length) return [];
+    const tickets = await this.sequelize.models.Ticket.findAll({
+      where: { user_id: friendIds, status: ['booked', 'paid', 'used'] },
+      include: [
+        {
+          model: this.sequelize.models.Screening,
+          include: [
+            {
+              model: this.sequelize.models.Movie,
+              include: [{ model: this.sequelize.models.Genre }],
+            },
+          ],
+        },
+      ],
+    });
+    const genreCount: Record<number, number> = {};
+    tickets.forEach((ticket) => {
+      const t = ticket.get ? ticket.get({ plain: true }) : ticket;
+      const genres = t.screening?.movie?.genres || [];
+      genres.forEach((genre) => {
+        genreCount[genre.id] = (genreCount[genre.id] || 0) + 1;
+      });
+    });
+    return Object.entries(genreCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([id]) => Number(id));
+  }
+
+  /**
+   * Lấy các suất chiếu sắp tới phù hợp với nhóm bạn bè (ưu tiên thể loại bạn bè thích)
+   */
+  async getUpcomingScreeningsForGroup(
+    friendIds: number[],
+    popularGenreIds: number[],
+  ) {
+    const now = new Date();
+    const screenings = await this.sequelize.models.Screening.findAll({
+      where: { start_time: { [Op.gte]: now } },
+      include: [
+        {
+          model: this.sequelize.models.Movie,
+          include: [{ model: this.sequelize.models.Genre }],
+        },
+        {
+          model: this.sequelize.models.TheaterRoom,
+          include: [{ model: this.sequelize.models.Theater }],
+        },
+      ],
+    });
+    // Ưu tiên các suất chiếu có phim thuộc thể loại phổ biến
+    return screenings.filter((s) => {
+      const sc = s.get ? s.get({ plain: true }) : s;
+      return sc.movie.genres.some((g) => popularGenreIds.includes(g.id));
+    });
+  }
+
+  /**
+   * Gợi ý nhóm nâng cao: phim/suất chiếu phù hợp nhóm bạn bè
+   */
+  async getGroupAdvancedRecommendations(userId: number) {
+    // 1. Lấy bạn bè
+    const friends = await this.usersService.getFriends(userId);
+    const friendIds = friends.map((f) => f.id);
+    console.log('Friends:', friends);
+    if (!friendIds.length) return [];
+    // 2. Thể loại bạn bè thích
+    const popularGenreIds = await this.getPopularGenresOfFriends(friendIds);
+    console.log('Popular genre IDs:', popularGenreIds);
+    // 3. Suất chiếu sắp tới phù hợp nhóm
+    const screenings = await this.getUpcomingScreeningsForGroup(
+      friendIds,
+      popularGenreIds,
+    );
+    console.log(
+      'Screenings:',
+      screenings.map((s) => (s.get ? s.get({ plain: true }) : s)),
+    );
+    // 4. Thống kê bạn bè từng đặt vé cho các phim này
+    const tickets = await this.sequelize.models.Ticket.findAll({
+      where: { user_id: friendIds, status: ['booked', 'paid', 'used'] },
+      include: [{ model: this.sequelize.models.Screening }],
+    });
+    console.log(
+      'Tickets:',
+      tickets.map((t) => (t.get ? t.get({ plain: true }) : t)),
+    );
+    const movieFriendMap: Record<number, number[]> = {};
+    tickets.forEach((ticket) => {
+      const t = ticket.get ? ticket.get({ plain: true }) : ticket;
+      const movieId = t.screening?.movie_id;
+      if (movieId) {
+        if (!movieFriendMap[movieId]) movieFriendMap[movieId] = [];
+        if (!movieFriendMap[movieId].includes(t.user_id)) {
+          movieFriendMap[movieId].push(t.user_id);
+        }
+      }
+    });
+    console.log('movieFriendMap:', movieFriendMap);
+    // 5. Trả về danh sách suất chiếu/phim, kèm bạn bè từng đặt/thích
+    return screenings.map((s) => {
+      const sc = s.get ? s.get({ plain: true }) : s;
+      const friendsBooked = movieFriendMap[sc.movie.id] || [];
+      const theaterName = sc.theaterRoom?.theater?.name || null;
+      console.log('For movie', sc.movie.id, 'friendsBooked:', friendsBooked);
+      return {
+        screening: sc,
+        movie: sc.movie,
+        theaterRoom: sc.theaterRoom,
+        theaterName,
+        popularGenre: sc.movie.genres.filter((g) =>
+          popularGenreIds.includes(g.id),
+        ),
+        friendsBooked,
+      };
+    });
+  }
+
+  async getInviteHistory(userId: number) {
+    return this.sequelize.models.Message.findAll({
+      where: {
+        type: 'invite',
+        [Op.or]: [{ sender_id: userId }, { receiver_id: userId }],
+      },
+      include: [
+        {
+          model: this.sequelize.models.User,
+          as: 'sender',
+          attributes: ['id', 'name', 'image'],
+        },
+        {
+          model: this.sequelize.models.User,
+          as: 'receiver',
+          attributes: ['id', 'name', 'image'],
+        },
+        {
+          model: this.sequelize.models.Screening,
+          as: 'screening',
+          include: [
+            {
+              model: this.sequelize.models.Movie,
+              as: 'movie',
+              attributes: ['id', 'title', 'poster_url', 'description'],
+            },
+          ],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
   }
 }
